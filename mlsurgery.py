@@ -1123,7 +1123,7 @@ def fun_model_example(name = 'mnist'):
 
     elif name == 'electric_grid_stability':
 
-        epochs = 100
+        epochs = 10
 
         x.append(tf.keras.layers.Dense(64) (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
