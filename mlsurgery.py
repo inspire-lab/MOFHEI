@@ -1081,7 +1081,7 @@ def fun_model_example(name = 'mnist'):
 
         epochs = 2
 
-        x.append(tf.keras.layers.Conv2D(filters=8, kernel_size=(8,8), strides=(4,4)) (x[-1]))
+        x.append(tf.keras.layers.Conv2D(filters=32, kernel_size=(6,6), strides=(4,4)) (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         #x.append(tf.keras.layers.BatchNormalization()  (x[-1]))
         x.append(tf.keras.layers.MaxPooling2D(pool_size=(2,2), strides = (2,2))  (x[-1]))
