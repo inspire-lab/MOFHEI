@@ -16,26 +16,27 @@ This Python 3+ library converts TensorFlow models into a HE-friendly pruned mode
 from mlsurgery import *
 
 opt                                = {}
-opt['he_friendly_stat']            = True     # Making a model HE-Friendly if True
-opt['he_polynomial_Degree']        = 2        # Currently supports polynomial degrees 2, 3, & 4
-opt['pruning_stat']                = True     # Prune a model if True
-opt['packing_stat']                = True     # Packing-Aware prune a model if True
-opt['num_slots']                   = 2**10    # Number of slots 
-opt['nonzero_tiles_rate']          = 0.50     # Percentage of tiles with all-zero values
-opt['minimum_acceptable_accuracy'] = 0.90     # Minimum acceptable accuracy
-opt['lr_transfer']                 = 0.00001  # Transfer learning learnign rate 
-opt['lr_finetune']                 = 0.000001 # Fine-tuning learning rate
-opt['epochs']                      = 1        # Number of epochs
-opt['pruning_epochs']              = 1        # Number of pruning epochs
-opt['epochs_transfer']             = 1        # Number of transfer learning epochs
-opt['epochs_finetune']             = 1        # Number of fine-tuning epochs
-opt['batch_size']                  = 128      # Batch size
-opt['initial_sparsity']            = 0.50     # only if opt['pruning_stat'] == True & opt['packing_stat'] == False
-opt['final_sparsity']              = 0.85     # only if opt['pruning_stat'] == True & opt['packing_stat'] == False
-opt['pruning_patience']            = 5        # only if opt['pruning_stat'] == True & opt['packing_stat'] == False
 
-my_obj                             = MLSurgery(data_tr, data_vl, model, opt)
-model_pruned, acc                  = my_obj.run()
+opt['he_friendly_stat' ]           = True # set True if we need to make model HE-friendly
+opt['pruning_stat']                = True # set True if we want to prune and cul the model
+
+# only if opt['he_friendly_stat'] == True
+opt['he_polynomial_Degree']        = 2  #Currently supports polynomial degrees 0, 2, 3, & 4 for making a model HE-friendly
+
+# if  opt['he_polynomial_Degree'] == 0, then set transfer and finetune epochs to 1
+opt['epochs_transfer']             = 10
+opt['epochs_finetune']             = 15
+opt['lr_transfer']                 = 0.00001
+opt['lr_finetune']                 = 0.000001
+opt['batch_size']                  = 128
+
+
+# only if opt['he_friendly_stat' ] == True 
+opt['epochs_pruning']              = 50
+opt['minimum_acceptable_accuracy'] = 0.50
+opt['target_sparsity']             = 0.5 
+opt['begin_step']                  = 0 
+opt['frequency']                   = 100
 
 ```
 
