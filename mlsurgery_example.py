@@ -1,27 +1,31 @@
 from mlsurgery import *
 
-opt = {}
-opt['he_friendly_stat']            = True
-opt['he_polynomial_Degree']        = 2 # Currently supports polynomial degrees 2, 3, & 4 for making a model HE-friendly
-opt['pruning_stat']                = True
-opt['packing_stat']                = True
-opt['num_slots']                   = 2**8
-opt['nonzero_tiles_rate']          = 0.50 
-opt['minimum_acceptable_accuracy'] = 0.90
+opt                                = {}
+
+opt['he_friendly_stat' ]           = True # set True if we need to make model HE-friendly
+opt['pruning_stat']                = True # set True if we want to prune and cul the model
+
+# only if opt['he_friendly_stat'] == True
+opt['he_polynomial_Degree']        = 2  #Currently supports polynomial degrees 0, 2, 3, & 4 for making a model HE-friendly
+
+# if  opt['he_polynomial_Degree'] == 0, then set transfer and finetune epochs to 1
+opt['epochs_transfer']             = 10
+opt['epochs_finetune']             = 15
 opt['lr_transfer']                 = 0.00001
 opt['lr_finetune']                 = 0.000001
-opt['epochs']                      = 1
-opt['pruning_epochs']              = 25
-opt['epochs_transfer']             = 2
-opt['epochs_finetune']             = 2
 opt['batch_size']                  = 128
-opt['initial_sparsity']            = 0.50 # only if opt['pruning_stat'] == True and opt['packing_stat'] == False
-opt['final_sparsity']              = 0.85 # only if opt['pruning_stat'] == True and opt['packing_stat'] == False
-opt['pruning_patience']            = 5    # only if opt['pruning_stat'] == True and opt['packing_stat'] == False
+
+
+# only if opt['he_friendly_stat' ] == True 
+opt['epochs_pruning']              = 50
+opt['minimum_acceptable_accuracy'] = 0.50
+opt['target_sparsity']             = 0.5 
+opt['begin_step']                  = 0 
+opt['frequency']                   = 100
 
 # wget !wget https://raw.githubusercontent.com/mhrafiei/data/main/electrical_grid_stability_simulated_data.csv
 
-data_name       = 'mnist' # cifar10 & electric_grid_stability -> (for electric_grid_stability make sure the csv file is in the directory using the above wget command)
+data_name       = 'cifar10' # cifar10 & electric_grid_stability -> (for electric_grid_stability make sure the csv file is in the directory using the above wget command)
 model_available = False
 
 if not model_available:
