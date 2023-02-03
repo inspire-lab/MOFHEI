@@ -25,7 +25,7 @@ opt['frequency']                   = 100
 
 # wget !wget https://raw.githubusercontent.com/mhrafiei/data/main/electrical_grid_stability_simulated_data.csv
 
-data_name       = 'cifar10' # cifar10 & electric_grid_stability -> (for electric_grid_stability make sure the csv file is in the directory using the above wget command)
+data_name       = 'mnist' # cifar10 & electric_grid_stability -> (for electric_grid_stability make sure the csv file is in the directory using the above wget command)
 model_available = False
 
 if not model_available:

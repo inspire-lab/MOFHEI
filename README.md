@@ -48,4 +48,4 @@ Step 0: Clone the library with an access token ```git clone https://YOURTOKEN@gi
 
 Step 1: Run ```mlsurgery_example.py``` (default is set for ```'mnist'```)
 
-Step 2: Verify ```model_pruned.h5``` and ```tile_shape.npy```
+Step 2: Verify ```model_pruned.h5```
