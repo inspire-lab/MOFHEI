@@ -199,8 +199,8 @@ class Features_2D_To_4D(tf.keras.layers.Layer):
         num_strides_horizontal  = int(-((self.width-self.kernel_size[0])//-self.strides[0]) + 1)
         num_strides_vertical    = int(-((self.height-self.kernel_size[1])//-self.strides[1]) + 1)
 
-        
-
+        # print(self.width, self.kernel_size[0], self.strides[0])
+        # print(inputs.shape, (num_strides_horizontal, num_strides_vertical, inputs.shape[-1]))
         return reshape(inputs, (num_strides_horizontal, num_strides_vertical, inputs.shape[-1]))
 
 class MLSurgery():
@@ -215,30 +215,33 @@ class MLSurgery():
         -- Matpplotlib
         --
     Currently supports classification models with Dense and/or Conv2D layers with no embeded models/layers
-    Currently supports polynomial degrees 2, 3, & 4 for making a model HE-friendly
+    Currently supports polynomial degrees 0, 2, 3, & 4 for making a model HE-friendly
     '''
 
 
     '''
-    opt = {}
-    opt['he_friendly_stat']             = True
-    opt['he_polynomial_Degree']        = 2 # Currently supports polynomial degrees 2, 3, & 4 for making a model HE-friendly
-    # opt['pruning_stat']                = True
-    # opt['packing_stat']                = False
-    #opt['num_slots']                   = None
-    #opt['nonzero_tiles_rate']          = 0.25       
-    opt['minimum_acceptable_accuracy'] = 0.90
+    opt                                = {}
+
+    opt['he_friendly_stat' ]           = True # set True if we need to make model HE-friendly
+    opt['pruning_stat']                = True # set True if we want to prune and cul the model
+
+    # only if opt['he_friendly_stat'] == True
+    opt['he_polynomial_Degree']        = 0  #Currently supports polynomial degrees 0, 2, 3, & 4 for making a model HE-friendly
+
+    # if  opt['he_polynomial_Degree'] == 0, then set transfer and finetune epochs to 1
+    opt['epochs_transfer']             = 5
+    opt['epochs_finetune']             = 5
     opt['lr_transfer']                 = 0.00001
     opt['lr_finetune']                 = 0.000001
-    opt['epochs_pruning']              = 25
-    opt['epochs_transfer']             = 15
-    opt['epochs_finetune']             = 10
     opt['batch_size']                  = 128
 
-    opt['target_sparsity']             = 0.5, 
-    opt['begin_step']                  = 0, 
-    opt['frequency']                   = 100
 
+    # only if opt['he_friendly_stat' ] == True 
+    opt['epochs_pruning']              = 5
+    opt['minimum_acceptable_accuracy'] = 0.90
+    opt['target_sparsity']             = 0.5 
+    opt['begin_step']                  = 0 
+    opt['frequency']                   = 100
     '''
 
     # Class Object Attributes
@@ -262,21 +265,6 @@ class MLSurgery():
         callback_threshold            = MyThresholdCallback(threshold = self.model_original_acc_te)
         self.callbacks                = [callback_threshold]
 
-        # if opt['he_polynomial_Degree'] == 0:
-        #     self.poly = Square()
-        
-        # elif opt['he_polynomial_Degree'] == 2:
-        #     self.poly =  DynamicPolyReLU_D2()
-
-        # elif opt['he_polynomial_Degree'] == 3:
-        #     self.poly =  DynamicPolyReLU_D3()
-
-        # elif opt['he_polynomial_Degree'] == 4:
-        #     self.poly =  DynamicPolyReLU_D4()
-        
-        # else:
-        #     assert True, "MLSurgery ERROR: Only polynomials of degree 0, 2, 3, & 4 are supported"
-
 
     def fun_clear():
 
@@ -294,38 +282,26 @@ class MLSurgery():
 
     def fun_model_clone(self, model):
 
-
-
         '''
         Create a clone version of the model
         '''
 
-        # '''
-        # model_clone = fun_model_clone(model)
-        # '''
         model_clone = tf.keras.models.clone_model(model)
         model_clone.set_weights(model.get_weights())
 
-        model_clone.compile(optimizer = model.optimizer, 
-                            loss      = model.loss,
-                            metrics   = model.metrics[-1:])
-        
-        # model_clone = tf.keras.models.clone_model(model)
-        # model_clone.set_weights(model.get_weights())
-        # model_clone.compile(optimizer = self.optimizer, loss = self.loss, metrics = self.metrics)
+        # metrics = model.metrics[-1:]
+        # if type(metrics) != list:
+        #     metrics = [metrics]
+
+        model_clone.compile(self.optimizer, loss = self.loss, metrics = self.metrics)
         
         return model_clone
 
     def fun_model_info(model):
 
-
-
         '''
         Create a dataframe version of the model's layers
         '''
-
-
-
         
         df                 = {}
         df['layer']        = []
@@ -501,6 +477,7 @@ class MLSurgery():
                     c = c + 1
                     lr_transfer = lr_transfer *0.5
 
+
         _, acc_case = model_clone.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
 
         return model_clone, acc_case 
@@ -582,297 +559,297 @@ class MLSurgery():
 
         return model_clone, acc_case
 
-    def fun_prun_nopacking(self, model):
+    # def fun_prun_nopacking(self, model):
 
 
-        '''
-        Random Prning of the model using Tensorflow available tools
-        '''
+    #     '''
+    #     Random Prning of the model using Tensorflow available tools
+    #     '''
 
-        warnings.filterwarnings("ignore")
+    #     warnings.filterwarnings("ignore")
 
-        tf.keras.utils.get_custom_objects().update(self.custom_objects)
+    #     tf.keras.utils.get_custom_objects().update(self.custom_objects)
 
-        model_clone = MLSurgery.fun_model_clone(self, model)
-
-
-        prune_low_magnitude = tfmot.sparsity.keras.prune_low_magnitude
-
-        num_images = self.data_tr[0].shape[0]
-
-        end_step = np.ceil(num_images / self.opt['batch_size']).astype(np.int32) * self.opt['epochs']
-
-        pruning_params = {"pruning_schedule": tfmot.sparsity.keras.PolynomialDecay(initial_sparsity = self.opt['initial_sparsity'], 
-                                                                                   final_sparsity   = self.opt['final_sparsity'], 
-                                                                                   begin_step       = 0, 
-                                                                                   end_step         = end_step)}
-        model_for_pruning = prune_low_magnitude(model_clone, **pruning_params)
-
-        # `prune_low_magnitude` requires a recompile.
-        model_for_pruning.compile(optimizer=self.optimizer, loss=self.loss, metrics = self.metrics)
+    #     model_clone = MLSurgery.fun_model_clone(self, model)
 
 
-        if not os.path.exists(self.path_temp):
-            os.makedirs(self.path_temp)
+    #     prune_low_magnitude = tfmot.sparsity.keras.prune_low_magnitude
 
-        callbacks = [tf.keras.callbacks.EarlyStopping(monitor="val_sparse_categorical_accuracy", restore_best_weights=True, patience = self.opt['pruning_patience']),
-                     tfmot.sparsity.keras.UpdatePruningStep(),
-                     tfmot.sparsity.keras.PruningSummaries(log_dir = self.path_temp)]
+    #     num_images = self.data_tr[0].shape[0]
+
+    #     end_step = np.ceil(num_images / self.opt['batch_size']).astype(np.int32) * self.opt['epochs']
+
+    #     pruning_params = {"pruning_schedule": tfmot.sparsity.keras.PolynomialDecay(initial_sparsity = self.opt['initial_sparsity'], 
+    #                                                                                final_sparsity   = self.opt['final_sparsity'], 
+    #                                                                                begin_step       = 0, 
+    #                                                                                end_step         = end_step)}
+    #     model_for_pruning = prune_low_magnitude(model_clone, **pruning_params)
+
+    #     # `prune_low_magnitude` requires a recompile.
+    #     model_for_pruning.compile(optimizer=self.optimizer, loss=self.loss, metrics = self.metrics)
 
 
-        model_for_pruning.fit(self.data_tr[0],self.data_tr[1], epochs = self.opt['epochs'], verbose = 0, validation_data = self.data_te, callbacks = callbacks)
+    #     if not os.path.exists(self.path_temp):
+    #         os.makedirs(self.path_temp)
 
-        model_pruned  = tfmot.sparsity.keras.strip_pruning(model_for_pruning)
+    #     callbacks = [tf.keras.callbacks.EarlyStopping(monitor="val_sparse_categorical_accuracy", restore_best_weights=True, patience = self.opt['pruning_patience']),
+    #                  tfmot.sparsity.keras.UpdatePruningStep(),
+    #                  tfmot.sparsity.keras.PruningSummaries(log_dir = self.path_temp)]
 
-        model_pruned.compile(optimizer=self.optimizer, loss=self.loss, metrics = self.metrics)
 
-        _, acc_case = model_pruned.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
+    #     model_for_pruning.fit(self.data_tr[0],self.data_tr[1], epochs = self.opt['epochs'], verbose = 0, validation_data = self.data_te, callbacks = callbacks)
+
+    #     model_pruned  = tfmot.sparsity.keras.strip_pruning(model_for_pruning)
+
+    #     model_pruned.compile(optimizer=self.optimizer, loss=self.loss, metrics = self.metrics)
+
+    #     _, acc_case = model_pruned.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
         
-        return model_pruned, acc_case
+    #     return model_pruned, acc_case
 
-    def fun_best_tile_configuration_2d(self, mat_shape):
-
-
-        """
-        Configures packing-aware tiles for dense layers
-        """
+    # def fun_best_tile_configuration_2d(self, mat_shape):
 
 
-        c = 0
-        while True:
-            if 2**c >= self.opt['num_slots']:
-                if 2**c > self.opt['num_slots']:
-                    c = c - 1
-                break
-            c = c + 1
+    #     """
+    #     Configures packing-aware tiles for dense layers
+    #     """
 
-        tile_shape = []
-        num_tiles = []
-        for i0 in range(c + 1):
-            if self.opt['num_slots'] % (2**i0) == 0:
-                tile_shape.append((2**i0, int(self.opt['num_slots'] / (2**i0))))
-                num_row = -(-mat_shape[0] // tile_shape[-1][0])
-                num_col = -(-mat_shape[1] // tile_shape[-1][1])
-                num_tiles.append(int(num_row * num_col))
 
-        num_best_tile   = min(num_tiles)
-        ind_best_tile   = num_tiles.index(min(num_tiles))
-        shape_best_tile = tile_shape[ind_best_tile]
+    #     c = 0
+    #     while True:
+    #         if 2**c >= self.opt['num_slots']:
+    #             if 2**c > self.opt['num_slots']:
+    #                 c = c - 1
+    #             break
+    #         c = c + 1
 
-        return shape_best_tile, num_best_tile
+    #     tile_shape = []
+    #     num_tiles = []
+    #     for i0 in range(c + 1):
+    #         if self.opt['num_slots'] % (2**i0) == 0:
+    #             tile_shape.append((2**i0, int(self.opt['num_slots'] / (2**i0))))
+    #             num_row = -(-mat_shape[0] // tile_shape[-1][0])
+    #             num_col = -(-mat_shape[1] // tile_shape[-1][1])
+    #             num_tiles.append(int(num_row * num_col))
 
-    def fun_tiling_2d(mat, tile_shape):
+    #     num_best_tile   = min(num_tiles)
+    #     ind_best_tile   = num_tiles.index(min(num_tiles))
+    #     shape_best_tile = tile_shape[ind_best_tile]
+
+    #     return shape_best_tile, num_best_tile
+
+    # def fun_tiling_2d(mat, tile_shape):
         
         
         
-        """
-        Trun a 2d mat into tiles given number of slots and tile shape
-        """
+    #     """
+    #     Trun a 2d mat into tiles given number of slots and tile shape
+    #     """
 
 
 
-        mat = np.array(mat)
+    #     mat = np.array(mat)
 
-        m, n = mat.shape
-        ind = np.arange(0, m * n).reshape((m, n))
+    #     m, n = mat.shape
+    #     ind = np.arange(0, m * n).reshape((m, n))
 
-        num_row = -(-ind.shape[0] // tile_shape[0])
-        num_col = -(-ind.shape[1] // tile_shape[1])
+    #     num_row = -(-ind.shape[0] // tile_shape[0])
+    #     num_col = -(-ind.shape[1] // tile_shape[1])
 
-        num_tiles = num_row * num_col
+    #     num_tiles = num_row * num_col
 
-        c_row     = 0
-        tiles_ind = []
-        tiles_mat = []
+    #     c_row     = 0
+    #     tiles_ind = []
+    #     tiles_mat = []
 
-        for row in range(num_row):
-            c_col = 0
-            for col in range(num_col):
+    #     for row in range(num_row):
+    #         c_col = 0
+    #         for col in range(num_col):
 
-                tile_ind_case = [[None for _ in range(tile_shape[1])] for _ in range(tile_shape[0])]
-                tile_mat_case = [[0 for _ in range(tile_shape[1])] for _ in range(tile_shape[0])]
+    #             tile_ind_case = [[None for _ in range(tile_shape[1])] for _ in range(tile_shape[0])]
+    #             tile_mat_case = [[0 for _ in range(tile_shape[1])] for _ in range(tile_shape[0])]
 
-                if row == num_row - 1 and col == num_col - 1:
-                    ind_case = ind[c_row:, c_col:]
-                    mat_case = mat[c_row:, c_col:]
+    #             if row == num_row - 1 and col == num_col - 1:
+    #                 ind_case = ind[c_row:, c_col:]
+    #                 mat_case = mat[c_row:, c_col:]
 
-                elif row != num_row - 1 and col == num_col - 1:
-                    ind_case = ind[c_row : c_row + tile_shape[0], c_col:]
-                    mat_case = mat[c_row : c_row + tile_shape[0], c_col:]
+    #             elif row != num_row - 1 and col == num_col - 1:
+    #                 ind_case = ind[c_row : c_row + tile_shape[0], c_col:]
+    #                 mat_case = mat[c_row : c_row + tile_shape[0], c_col:]
 
-                elif row == num_row - 1 and col != num_col - 1:
-                    ind_case = ind[c_row:, c_col : c_col + tile_shape[1]]
-                    mat_case = mat[c_row:, c_col : c_col + tile_shape[1]]
+    #             elif row == num_row - 1 and col != num_col - 1:
+    #                 ind_case = ind[c_row:, c_col : c_col + tile_shape[1]]
+    #                 mat_case = mat[c_row:, c_col : c_col + tile_shape[1]]
 
-                else:
-                    ind_case = ind[c_row : c_row + tile_shape[0], c_col : c_col + tile_shape[1]]
-                    mat_case = mat[c_row : c_row + tile_shape[0], c_col : c_col + tile_shape[1]]
+    #             else:
+    #                 ind_case = ind[c_row : c_row + tile_shape[0], c_col : c_col + tile_shape[1]]
+    #                 mat_case = mat[c_row : c_row + tile_shape[0], c_col : c_col + tile_shape[1]]
 
-                for i0 in range(ind_case.shape[0]):
-                    for i1 in range(ind_case.shape[1]):
-                        tile_ind_case[i0][i1] = ind_case[i0, i1]
-                        tile_mat_case[i0][i1] = mat_case[i0, i1]
+    #             for i0 in range(ind_case.shape[0]):
+    #                 for i1 in range(ind_case.shape[1]):
+    #                     tile_ind_case[i0][i1] = ind_case[i0, i1]
+    #                     tile_mat_case[i0][i1] = mat_case[i0, i1]
 
-                c_col += tile_shape[1]
+    #             c_col += tile_shape[1]
 
-                tiles_ind.append(tile_ind_case)
-                tiles_mat.append(tile_mat_case)
+    #             tiles_ind.append(tile_ind_case)
+    #             tiles_mat.append(tile_mat_case)
 
-            c_row += tile_shape[0]
+    #         c_row += tile_shape[0]
 
-        return tiles_mat, tiles_ind, num_tiles
+    #     return tiles_mat, tiles_ind, num_tiles
 
-    def fun_tiling_conv2d(mat, self):
-
-
-
-        """
-        Trun a Con2d weights into tiles given number of slots and tile shape
-        Condition: products of kernel size, (e.g. (3,3) = 9) cannot be larger than the num_slots (e.g., 2**7)
-        """
+    # def fun_tiling_conv2d(mat, self):
 
 
 
-        mat = np.array(mat)
-        mat_shape = list(mat.shape)
+    #     """
+    #     Trun a Con2d weights into tiles given number of slots and tile shape
+    #     Condition: products of kernel size, (e.g. (3,3) = 9) cannot be larger than the num_slots (e.g., 2**7)
+    #     """
 
-        ind = np.arange(0, MLSurgery.fun_prod_list(mat_shape)).reshape(mat_shape)
 
-        if MLSurgery.fun_prod_list(mat_shape) <= self.opt['num_slots']:
-            tiles_ind, num_tiles, tile_shape = [ind], 1, ind.shape
-        else:
-            # find which dimension would fullfill the slots!
-            r = 1
-            for dim in range(len(mat_shape)):
-                r = r * mat_shape[dim]
-                if self.opt['num_slots'] / r < 1:
-                    break
+
+    #     mat = np.array(mat)
+    #     mat_shape = list(mat.shape)
+
+    #     ind = np.arange(0, MLSurgery.fun_prod_list(mat_shape)).reshape(mat_shape)
+
+    #     if MLSurgery.fun_prod_list(mat_shape) <= self.opt['num_slots']:
+    #         tiles_ind, num_tiles, tile_shape = [ind], 1, ind.shape
+    #     else:
+    #         # find which dimension would fullfill the slots!
+    #         r = 1
+    #         for dim in range(len(mat_shape)):
+    #             r = r * mat_shape[dim]
+    #             if self.opt['num_slots'] / r < 1:
+    #                 break
             
-            if dim <2:
-                print("ERROR | num_slots must be larer than the product of conv2d kernel size in each conv2d layer")
+    #         if dim <2:
+    #             print("ERROR | num_slots must be larer than the product of conv2d kernel size in each conv2d layer")
 
 
-            num_mat_shape_rest = len(mat_shape[dim + 1 :])  # number of reamining dimensions if any
-            tile_base_shape    = mat_shape[:dim]  # early dimensions
-            tile_prime_shape   = [self.opt['num_slots'] // (MLSurgery.fun_prod_list(tile_base_shape))]  # primary dimesnion of the tiles such best fit in the slots
-            tile_shape         = tile_base_shape + tile_prime_shape + [1] * num_mat_shape_rest
+    #         num_mat_shape_rest = len(mat_shape[dim + 1 :])  # number of reamining dimensions if any
+    #         tile_base_shape    = mat_shape[:dim]  # early dimensions
+    #         tile_prime_shape   = [self.opt['num_slots'] // (MLSurgery.fun_prod_list(tile_base_shape))]  # primary dimesnion of the tiles such best fit in the slots
+    #         tile_shape         = tile_base_shape + tile_prime_shape + [1] * num_mat_shape_rest
 
-            tiles_ind = []
-            if dim == 2:
-                num_tiles = 0
-                for i0 in range(mat_shape[-1]):
-                    for i1 in range(0, mat_shape[dim], tile_prime_shape[0]):
-                        if i1 == list(range(0, mat_shape[dim], tile_prime_shape[0]))[-1]:
-                            ind_case = ind[:, :, i1:, i0]
-                        else:
-                            ind_case = ind[:, :, i1 : i1 + tile_prime_shape[0], i0]
+    #         tiles_ind = []
+    #         if dim == 2:
+    #             num_tiles = 0
+    #             for i0 in range(mat_shape[-1]):
+    #                 for i1 in range(0, mat_shape[dim], tile_prime_shape[0]):
+    #                     if i1 == list(range(0, mat_shape[dim], tile_prime_shape[0]))[-1]:
+    #                         ind_case = ind[:, :, i1:, i0]
+    #                     else:
+    #                         ind_case = ind[:, :, i1 : i1 + tile_prime_shape[0], i0]
 
-                        tiles_ind.append(ind_case)
-                        num_tiles = num_tiles + 1
+    #                     tiles_ind.append(ind_case)
+    #                     num_tiles = num_tiles + 1
 
-            if dim == 3:
-                num_tiles = 0
-                for i0 in range(0, mat_shape[dim], tile_prime_shape[0]):
-                    if i0 == list(range(0, mat_shape[dim], tile_prime_shape[0]))[-1]:
-                        ind_case = ind[:, :, :, i0]
-                    else:
-                        ind_case = ind[:, :, :, i0 : i0 + tile_prime_shape[0]]
+    #         if dim == 3:
+    #             num_tiles = 0
+    #             for i0 in range(0, mat_shape[dim], tile_prime_shape[0]):
+    #                 if i0 == list(range(0, mat_shape[dim], tile_prime_shape[0]))[-1]:
+    #                     ind_case = ind[:, :, :, i0]
+    #                 else:
+    #                     ind_case = ind[:, :, :, i0 : i0 + tile_prime_shape[0]]
 
-                    tiles_ind.append(ind_case)
-                    num_tiles = num_tiles + 1
+    #                 tiles_ind.append(ind_case)
+    #                 num_tiles = num_tiles + 1
 
-        return tiles_ind, num_tiles, tile_shape
+    #     return tiles_ind, num_tiles, tile_shape
 
-    def fun_prod_list(x):
-        r = 1
-        for i0 in range(len(x)):
-            r = r * x[i0]
+    # def fun_prod_list(x):
+    #     r = 1
+    #     for i0 in range(len(x)):
+    #         r = r * x[i0]
 
-        return r
+    #     return r
 
-    def fun_gradient_mask(model, self):
-
-
-        '''
-        generates gradient mask
-        '''
+    # def fun_gradient_mask(model, self):
 
 
-        gradient_mask = []
-        tile_info     = []
-
-        for var in model.trainable_variables:
-            var = np.array(var)
-            if len(var.shape) == 1:
-                var = np.expand_dims(var, axis=0)
-
-            if len(var.shape) == 2:
-                tile_shape, _           = MLSurgery.fun_best_tile_configuration_2d(self, var.shape)
-                _, tiles_ind, num_tiles = MLSurgery.fun_tiling_2d(var, tile_shape)
-
-            if len(var.shape) == 4:
-                tiles_ind, num_tiles, tile_shape = MLSurgery.fun_tiling_conv2d(var, self)
-
-            num_learning_tiles   = int(num_tiles * self.opt['nonzero_tiles_rate']) + 1
-
-            ind_learning_tiles   = np.random.permutation(num_tiles)[:num_learning_tiles]
-            ind_learning_weights = np.concatenate([np.array(tiles_ind[i0]).ravel() for i0 in ind_learning_tiles])
-            ind_learning_weights = ind_learning_weights[ind_learning_weights != np.array(None)]
-            ind_learning_weights = np.array(ind_learning_weights, dtype = np.int32)
-
-            grad_case            = np.zeros(var.shape, dtype=np.float32).ravel()
-
-            grad_case[ind_learning_weights] = 1
-            grad_case                       = np.reshape(grad_case, var.shape)
-
-            if grad_case.shape[0] == 1:
-                grad_case = grad_case[0, :]
-
-            gradient_mask.append(grad_case)
-
-            tile_info_case                    = {}
-            tile_info_case["tile_shape"]      = tile_shape
-            tile_info_case["num_tiles"]       = num_tiles
-            tile_info_case["tiles_ind"]       = tiles_ind
-            tile_info_case["tiles_ind_ravel"] = ind_learning_weights
-
-            tile_info.append(tile_info_case)
-
-        return gradient_mask, tile_info
-
-    def fun_weight_initialization_with_tiles(model, tile_info):
+    #     '''
+    #     generates gradient mask
+    #     '''
 
 
+    #     gradient_mask = []
+    #     tile_info     = []
 
-        '''
-        Set weights all zero except the tiles
-        '''
+    #     for var in model.trainable_variables:
+    #         var = np.array(var)
+    #         if len(var.shape) == 1:
+    #             var = np.expand_dims(var, axis=0)
+
+    #         if len(var.shape) == 2:
+    #             tile_shape, _           = MLSurgery.fun_best_tile_configuration_2d(self, var.shape)
+    #             _, tiles_ind, num_tiles = MLSurgery.fun_tiling_2d(var, tile_shape)
+
+    #         if len(var.shape) == 4:
+    #             tiles_ind, num_tiles, tile_shape = MLSurgery.fun_tiling_conv2d(var, self)
+
+    #         num_learning_tiles   = int(num_tiles * self.opt['nonzero_tiles_rate']) + 1
+
+    #         ind_learning_tiles   = np.random.permutation(num_tiles)[:num_learning_tiles]
+    #         ind_learning_weights = np.concatenate([np.array(tiles_ind[i0]).ravel() for i0 in ind_learning_tiles])
+    #         ind_learning_weights = ind_learning_weights[ind_learning_weights != np.array(None)]
+    #         ind_learning_weights = np.array(ind_learning_weights, dtype = np.int32)
+
+    #         grad_case            = np.zeros(var.shape, dtype=np.float32).ravel()
+
+    #         grad_case[ind_learning_weights] = 1
+    #         grad_case                       = np.reshape(grad_case, var.shape)
+
+    #         if grad_case.shape[0] == 1:
+    #             grad_case = grad_case[0, :]
+
+    #         gradient_mask.append(grad_case)
+
+    #         tile_info_case                    = {}
+    #         tile_info_case["tile_shape"]      = tile_shape
+    #         tile_info_case["num_tiles"]       = num_tiles
+    #         tile_info_case["tiles_ind"]       = tiles_ind
+    #         tile_info_case["tiles_ind_ravel"] = ind_learning_weights
+
+    #         tile_info.append(tile_info_case)
+
+    #     return gradient_mask, tile_info
+
+    # def fun_weight_initialization_with_tiles(model, tile_info):
+
+
+
+    #     '''
+    #     Set weights all zero except the tiles
+    #     '''
 
         
         
-        for i0 in range(len(model.trainable_variables)):
-            weight_case      = np.array(model.trainable_variables[i0])
-            layer_case_name  = model.trainable_variables[i0].name
-            layer_name       = layer_case_name.split('/')[0]
-            weight_ravel     = weight_case.ravel()
+    #     for i0 in range(len(model.trainable_variables)):
+    #         weight_case      = np.array(model.trainable_variables[i0])
+    #         layer_case_name  = model.trainable_variables[i0].name
+    #         layer_name       = layer_case_name.split('/')[0]
+    #         weight_ravel     = weight_case.ravel()
 
-            ind_case         = tile_info[i0]["tiles_ind_ravel"]
-            zmat             = np.zeros(weight_ravel.shape)
-            zmat[ind_case]   = weight_ravel[ind_case]
-            weight_case      = zmat.reshape(weight_case.shape)
+    #         ind_case         = tile_info[i0]["tiles_ind_ravel"]
+    #         zmat             = np.zeros(weight_ravel.shape)
+    #         zmat[ind_case]   = weight_ravel[ind_case]
+    #         weight_case      = zmat.reshape(weight_case.shape)
 
-            for layer in model.layers:
-                if layer.name == layer_name:
-                    w_case = []
-                    for w in layer.weights:
-                        if w.name == layer_case_name:
-                            w_case.append(weight_case)
-                        else:
-                            w_case.append(np.array(w))
+    #         for layer in model.layers:
+    #             if layer.name == layer_name:
+    #                 w_case = []
+    #                 for w in layer.weights:
+    #                     if w.name == layer_case_name:
+    #                         w_case.append(weight_case)
+    #                     else:
+    #                         w_case.append(np.array(w))
 
-                    layer.set_weights(w_case)
+    #                 layer.set_weights(w_case)
 
-        return model
+    #     return model
 
     def fun_plot_tiles(model):
 
@@ -996,63 +973,63 @@ class MLSurgery():
 
         return model_custom
 
-    def fun_tile_save(tile_info, model):
+    # def fun_tile_save(tile_info, model):
         
-        tiles_shape = {}
+    #     tiles_shape = {}
 
-        for i0, weight in enumerate(model.trainable_weights):
-            name             = weight.name
-            key              = '_'.join([i0 if ':' not in i0 else ''.join(i0.split(':')) for i0 in name.split('/')])
-            tiles_shape[key] = tile_info[i0]['tile_shape']
+    #     for i0, weight in enumerate(model.trainable_weights):
+    #         name             = weight.name
+    #         key              = '_'.join([i0 if ':' not in i0 else ''.join(i0.split(':')) for i0 in name.split('/')])
+    #         tiles_shape[key] = tile_info[i0]['tile_shape']
         
-        np.save('tiles_shape.npy', tiles_shape)
+    #     np.save('tiles_shape.npy', tiles_shape)
 
-    def fun_prun_withpacking(self, model):
-
-
-
-        '''
-        Packing-aware pruning a model 
-        '''
+    # def fun_prun_withpacking(self, model):
 
 
 
-        global gradient_mask
-        global tile_info
-
-        for layer in model.layers:
-            layer.trainable = True
-
-        model.compile(optimizer = self.optimizer, loss = self.loss, metrics = self.metrics)
-
-        model_clone = MLSurgery.fun_model_clone(self, model) #tf.keras.models.clone_model(model)
-
-        """
-        For every weight matrix in the model, Identify the best tile shape such minimizes
-        the total number of tiles. Next, for every weight matrix in the model,
-        randomly selects nonzero_tile_percentage of the tiles to be trained by creating
-        a list of gradient_mask. The list tile_info includes tile information and indices
-        for every weight matrix 
-        """
-
-        gradient_mask, tile_info = MLSurgery.fun_gradient_mask(model_clone, self)
-
-        MLSurgery.fun_tile_save(tile_info, model_clone)
+    #     '''
+    #     Packing-aware pruning a model 
+    #     '''
 
 
-        """
-        Based on the index information in tile_info, for every weight, non-zero tiles are
-        modified to have random uniform weight initiations beween -0.1 and +0.1 and the 
-        otehr tiles to have zero.
-        """
 
-        model_clone = MLSurgery.fun_weight_initialization_with_tiles(model_clone, tile_info)
+    #     global gradient_mask
+    #     global tile_info
 
-        model_custom = MLSurgery.fun_custom_training(self, model_clone)
+    #     for layer in model.layers:
+    #         layer.trainable = True
 
-        _, acc_case = model_custom.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
+    #     model.compile(optimizer = self.optimizer, loss = self.loss, metrics = self.metrics)
 
-        return model_custom, acc_case
+    #     model_clone = MLSurgery.fun_model_clone(self, model) #tf.keras.models.clone_model(model)
+
+    #     """
+    #     For every weight matrix in the model, Identify the best tile shape such minimizes
+    #     the total number of tiles. Next, for every weight matrix in the model,
+    #     randomly selects nonzero_tile_percentage of the tiles to be trained by creating
+    #     a list of gradient_mask. The list tile_info includes tile information and indices
+    #     for every weight matrix 
+    #     """
+
+    #     gradient_mask, tile_info = MLSurgery.fun_gradient_mask(model_clone, self)
+
+    #     MLSurgery.fun_tile_save(tile_info, model_clone)
+
+
+    #     """
+    #     Based on the index information in tile_info, for every weight, non-zero tiles are
+    #     modified to have random uniform weight initiations beween -0.1 and +0.1 and the 
+    #     otehr tiles to have zero.
+    #     """
+
+    #     model_clone = MLSurgery.fun_weight_initialization_with_tiles(model_clone, tile_info)
+
+    #     model_custom = MLSurgery.fun_custom_training(self, model_clone)
+
+    #     _, acc_case = model_custom.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
+
+    #     return model_custom, acc_case
 
     def fun_evaluate(self, model):
         _, acc = model.evaluate(self.data_tr[0], self.data_tr[1], verbose = 0, batch_size = 32)
@@ -1237,13 +1214,15 @@ class MLSurgery():
 
         return model_pruning, info
 
-    def weight_observation(model, range_limit = True):
+    def fun_weight_observation(model, range_limit = True):
         '''
         weight_observation(model, range_limit = True)
         '''
         for layer in model.layers:
             if 'dense' in layer.name:
                 weight = layer.weights[0].numpy()
+                name   = layer.weights[0].name 
+                name   = '_'.join([i0 if ':' not in i0 else ''.join(i0.split(':')) for i0 in name.split('/')]) + '.png'
                 if range_limit:
                     if weight.shape[0] > 100:
                         weight = weight[:100,:]
@@ -1253,7 +1232,9 @@ class MLSurgery():
                 
                 plt.figure(figsize = [5,5])
                 plt.imshow(np.abs(weight)==0, cmap = 'gray');
+                plt.show();
                 plt.title(layer.name)
+                plt.savefig(name)
 
     def fun_generate_model_plugbacked(model, info):
 
@@ -1331,14 +1312,13 @@ class MLSurgery():
 
         #_, acc              = model_pruning.evaluate(self.data_te[0], self.data_te[1], verbose=0, batch_size = 32)
 
-        MLSurgery.weight_observation(model_pruning)
+        #MLSurgery.weight_observation(model_pruning)
         
         model_plugbacked    = MLSurgery.fun_generate_model_plugbacked(model_pruning, info)
 
         _, acc              = model_plugbacked.evaluate(self.data_te[0], self.data_te[1], verbose=0, batch_size = 32)  
 
         return model_plugbacked, acc
-
 
     def run(self):
 
@@ -1373,7 +1353,8 @@ class MLSurgery():
 
 
 
-        MLSurgery.fun_plot_tiles(model)
+        #MLSurgery.fun_plot_tiles(model)
+        MLSurgery.fun_weight_observation(model)
 
         shutil.rmtree(self.path_temp,            ignore_errors=True)
         shutil.rmtree(self.path + '__pycache__', ignore_errors=True)
@@ -1462,6 +1443,9 @@ def fun_model_example(name = 'mnist'):
 
         epochs = 2
 
+
+        '''
+
         x.append(tf.keras.layers.Conv2D(filters=32, kernel_size=(6,6), strides=(4,4)) (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         #x.append(tf.keras.layers.BatchNormalization()  (x[-1]))
@@ -1472,22 +1456,42 @@ def fun_model_example(name = 'mnist'):
         x.append(tf.keras.layers.Dense(16) (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
 
+        '''
+
+        #inputs = tf.keras.layers.Input((28,28,1))
+        x.append(tf.keras.layers.Conv2D(filters = 32,kernel_size = (5,5), strides = (1,1))( x[-1]))
+        x.append(tf.keras.layers.AveragePooling2D(pool_size = (2,2), strides = (2,2)) (x[-1]))
+        x.append(tf.keras.layers.BatchNormalization() (x[-1]))
+        x.append(tf.keras.layers.ReLU()(x[-1]))
+        x.append(tf.keras.layers.Flatten()(x[-1]))
+        x.append(tf.keras.layers.Dense(units = 1024) (x[-1]))
+        x.append(tf.keras.layers.ReLU() (x[-1]))
+        x.append(tf.keras.layers.Dropout(0.4) (x[-1]))
+        # outputs = tf.keras.layers.Dense(10) (x)
+
+        # model_original = tf.keras.Model(inputs, outputs)
+        # model_original.compile(optimizer = 'adam',
+        #                     loss      = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+        #                     metrics   = ['accuracy'])
+
+        # model_original.summary()
+
 
     elif name == 'cifar10':
 
         epochs = 25
 
-        x.append(tf.keras.layers.Conv2D(filters=256, kernel_size=(3,3), strides=(2,2)) (x[-1]))
+        x.append(tf.keras.layers.Conv2D(filters=256, kernel_size=(3,3), strides=(1,1)) (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.BatchNormalization()  (x[-1]))
         x.append(tf.keras.layers.MaxPooling2D(pool_size=(2,2), strides = (2,2))  (x[-1]))
 
-        x.append(tf.keras.layers.Conv2D(filters=256, kernel_size=(3,3), strides=(1,1), padding="same")  (x[-1]))
+        x.append(tf.keras.layers.Conv2D(filters=256, kernel_size=(3,3), strides=(1,1))  (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.BatchNormalization()  (x[-1]))
         x.append(tf.keras.layers.MaxPooling2D(pool_size=(2,2), strides = (2,2))  (x[-1]))
 
-        x.append(tf.keras.layers.Conv2D(filters=256, kernel_size=(3,3), strides=(1,1), padding="same")  (x[-1]))
+        x.append(tf.keras.layers.Conv2D(filters=256, kernel_size=(3,3), strides=(1,1))  (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.BatchNormalization()  (x[-1]))
         x.append(tf.keras.layers.MaxPooling2D(pool_size=(2,2), strides = (2,2))  (x[-1]))
