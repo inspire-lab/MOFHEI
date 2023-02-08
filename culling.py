@@ -38,7 +38,7 @@ for layer in model_pruned_clone.layers:
             weight_good        = weight[:,:,ind_good3, :][:,:,:,ind_good4]
             #ind_good_row    = np.ndarray.flatten(np.array(range(np.prod(weight.shape))).reshape(weight.shape)[:,:,ind_good3,ind_good4])
 
-        ind_good_row = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:])[:,:,ind_good4])
+        ind_good_row = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:][::-1])[ind_good4,:,:])
         #np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:])[:,:,ind_good4])
         
         weight_initializer = tf.initializers.constant(weight_good)
@@ -65,12 +65,12 @@ for layer in model_pruned_clone.layers:
             moving_variance   = layer.weights[3].numpy()
             
             ind_good_channel  = list(range(gamma.shape[0]))
-            ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:]))
+            ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:][::-1])) #np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:]))
             
 
         else:
             ind_good_channel  = info[info_keys[-1]]['ind_good_channel']
-            ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:])[:,:,ind_good_channel]) #info[info_keys[-1]]['ind_good_row']
+            ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:][::-1])[ind_good_channel,:,:])#np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:])[:,:,ind_good_channel]) #info[info_keys[-1]]['ind_good_row']
 
             gamma             = layer.weights[0].numpy()[ind_good_channel]
             beta              = layer.weights[1].numpy()[ind_good_channel]
@@ -94,10 +94,10 @@ for layer in model_pruned_clone.layers:
     elif 'pooling2d' in layer.name:
         if (len(info_keys)   == 0): #or ('conv2d' in info_keys[-1]) or ('batch_normalization' in info_keys[-1]):
             ind_good_channel  = list(range(layer.output_shape[-1]))
-            ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:]))
+            ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:][::-1]))#np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:]))
         else:
             ind_good_channel  = info[info_keys[-1]]['ind_good_channel']
-            ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:])[:,:,ind_good_channel])
+            ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:][::-1])[ind_good_channel,:,:])#np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:])[:,:,ind_good_channel])
         
         # gather information 
         info[layer.name]                                   = {}
@@ -122,10 +122,13 @@ for layer in model_pruned_clone.layers:
             #print(len(ind_good_row))
         else:
             ind_good_row        = deepcopy(info[info_keys[-1]]['ind_good_row'])
+
+
             # print(weight.shape)
             # print(len(ind_good_row))
             # print(len(ind_good_row))
-            # print(ind_good_row)
+            # print(info[info_keys[-1]]['ind_good_channel'])
+            #print(np.array(ind_good_row).reshape((12,12,17)))
             weight_good         = weight[ind_good_row, :][:,ind_good_column]
             # print(weight_good.shape)
             
