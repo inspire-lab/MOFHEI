@@ -1481,7 +1481,7 @@ def fun_model_example(name = 'mnist'):
 
         epochs = 25
 
-        x.append(tf.keras.layers.Conv2D(filters=256, kernel_size=(3,3), strides=(1,1)) (x[-1]))
+        x.append(tf.keras.layers.Conv2D(filters=128, kernel_size=(3,3), strides=(1,1)) (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.BatchNormalization()  (x[-1]))
         x.append(tf.keras.layers.MaxPooling2D(pool_size=(2,2), strides = (2,2))  (x[-1]))
@@ -1491,18 +1491,22 @@ def fun_model_example(name = 'mnist'):
         x.append(tf.keras.layers.BatchNormalization()  (x[-1]))
         x.append(tf.keras.layers.MaxPooling2D(pool_size=(2,2), strides = (2,2))  (x[-1]))
 
-        x.append(tf.keras.layers.Conv2D(filters=256, kernel_size=(3,3), strides=(1,1))  (x[-1]))
+        x.append(tf.keras.layers.Conv2D(filters=512, kernel_size=(3,3), strides=(1,1))  (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.BatchNormalization()  (x[-1]))
         x.append(tf.keras.layers.MaxPooling2D(pool_size=(2,2), strides = (2,2))  (x[-1]))
 
         x.append(tf.keras.layers.Flatten()  (x[-1]))
  
-        x.append(tf.keras.layers.Dense(256) (x[-1]))
+        x.append(tf.keras.layers.Dense(1024) (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.Dropout(0.25)  (x[-1]))
 
-        x.append(tf.keras.layers.Dense(128) (x[-1]))
+        x.append(tf.keras.layers.Dense(512) (x[-1]))
+        x.append(tf.keras.layers.ReLU()  (x[-1]))
+        x.append(tf.keras.layers.Dropout(0.25)  (x[-1]))
+
+        x.append(tf.keras.layers.Dense(256) (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.Dropout(0.25)  (x[-1]))
 
