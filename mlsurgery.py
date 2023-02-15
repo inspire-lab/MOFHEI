@@ -129,7 +129,12 @@ class Features_4D_To_2D(tf.keras.layers.Layer):
         self.kernel_size = kernel_size
         self.strides     = strides
 
-    def call(self, inputs):
+    def call(self, inputs, padding = 'valid'):
+        
+        if padding == 'same':
+            inputs = tf.keras.layers.ZeroPadding2D(padding=1)(inputs)
+            #print('here', inputs.shape)
+        
         batch_size, width, hight, depth = inputs.shape
 
         # num_strides_horizontal  = int(tf.math.ceil((width-self.kernel_size[0])/self.strides[0]) + 1)
@@ -186,22 +191,67 @@ class Features_2D_To_4D(tf.keras.layers.Layer):
                  width,
                  height,
                  kernel_size,
-                 strides, 
+                 strides,
+                 padding,
                  **kwargs):
       
         super(Features_2D_To_4D, self).__init__()
-        self.width       = width
-        self.height      = height
+
+        if padding == 'same':           
+            self.width       = width  + 2
+            self.height      = height + 2
+        else:
+            self.width       = width
+            self.height      = height 
+
         self.strides     = strides
         self.kernel_size = kernel_size
 
+        #print(width, height, strides, kernel_size)
+
     def call(self, inputs):
+
+        
         num_strides_horizontal  = int(-((self.width-self.kernel_size[0])//-self.strides[0]) + 1)
         num_strides_vertical    = int(-((self.height-self.kernel_size[1])//-self.strides[1]) + 1)
 
         # print(self.width, self.kernel_size[0], self.strides[0])
         # print(inputs.shape, (num_strides_horizontal, num_strides_vertical, inputs.shape[-1]))
         return reshape(inputs, (num_strides_horizontal, num_strides_vertical, inputs.shape[-1]))
+
+
+class CustomModel(tf.keras.Model):
+    def train_step(self, data):
+        x, y = data
+
+        with tf.GradientTape() as tape:
+            y_pred = self(x, training=True)  # Forward pass
+            loss = self.compiled_loss(y, y_pred, regularization_losses=self.losses)
+        
+        # Compute gradients
+        trainable_vars = self.trainable_variables
+        gradients = tape.gradient(loss, trainable_vars)
+
+        #print(type(gradients[0]))
+
+        gradient_mask = []
+        for weight in trainable_vars:
+            if ('bias' in weight.name) or ('batch_normalization' in weight.name):
+                gradient_mask.append(tf.ones((weight.shape), dtype = tf.float32))
+            else:
+                gradient_mask.append(tf.zeros((weight.shape), dtype = tf.float32))
+
+
+        if cond_transfer_learning:
+            gradients = [g * m for g,m in zip(gradients, gradient_mask)]
+
+        # Update weights
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        # Update metrics (includes the metric that tracks the loss)
+        self.compiled_metrics.update_state(y, y_pred)
+        # Return a dict mapping metric names to current value
+        return {m.name: m.result() for m in self.metrics}
+
 
 class MLSurgery():
     
@@ -262,8 +312,13 @@ class MLSurgery():
         self.path_temp                = os.path.join(self.path, 'temp')
 
         _, self.model_original_acc_te = model_original.evaluate(data_te[0], data_te[1], verbose = 0, batch_size = 32)
+        
         callback_threshold            = MyThresholdCallback(threshold = self.model_original_acc_te)
-        self.callbacks                = [callback_threshold]
+        callback_patience             = tf.keras.callbacks.EarlyStopping(monitor              = 'val_sparse_categorical_accuracy',
+                                                                         patience             = opt['patience'],
+                                                                         restore_best_weights = True)
+
+        self.callbacks                = [callback_threshold, callback_patience]
 
 
     def fun_clear():
@@ -927,9 +982,9 @@ class MLSurgery():
                 if len(layers_inpt[i0]) == 1:
                     ind_layer = layers_name.index(layers_inpt[i0][0])
                     layer_case = layers[i0]
-                    print(i0, ind_layer)
-                    print(x_hist)
-                    print(x_hist[ind_layer])
+                    # print(i0, ind_layer)
+                    # print(x_hist)
+                    # print(x_hist[ind_layer])
                     x = layer_case(x_hist[ind_layer])
                 else:
                     layer_case = layers[i0]
@@ -1084,6 +1139,7 @@ class MLSurgery():
         info[name]['height']             = height
         info[name]['depth']              = depth
         info[name]['weight_shape']       = weights_shape
+        info[name]['padding']            = layer.padding
 
         return info
 
@@ -1186,12 +1242,12 @@ class MLSurgery():
 
                 info = MLSurgery.conv2d_information_extractor(self, layer, info = info)
                 
-                x = Features_4D_To_2D(info[name]['kernel_size'], info[name]['strides']) (x)
+                x = Features_4D_To_2D(info[name]['kernel_size'], info[name]['strides']) (x, padding = info[name]['padding'])
                 x = tfmot.sparsity.keras.prune_low_magnitude(tf.keras.layers.Dense(units              = info[name]['num_filters'], 
                                                                                    kernel_initializer = info[name]['weight_initializer'], 
                                                                                    bias_initializer   = info[name]['bias_initializer']), **info[name]['pruning_params'])(x)
                 
-                x = Features_2D_To_4D(info[name]['width'], info[name]['height'], info[name]['kernel_size'], info[name]['strides']) (x)
+                x = Features_2D_To_4D(info[name]['width'], info[name]['height'], info[name]['kernel_size'], info[name]['strides'], info[name]['padding']) (x)
 
             elif 'dense' in name:
                 info = MLSurgery.dense_infomation_extractor(self, layer, info = info)
@@ -1264,7 +1320,8 @@ class MLSurgery():
 
                 x = tf.keras.layers.Conv2D(filters            = info[keys[info_counter]]['num_filters'],
                                            kernel_size        = info[keys[info_counter]]['kernel_size'], 
-                                           strides            = info[keys[info_counter]]['strides'], 
+                                           strides            = info[keys[info_counter]]['strides'],
+                                           padding            = info[keys[info_counter]]['padding'],  
                                            kernel_initializer = info[name]['weight_initializer'],
                                            bias_initializer   = info[name]['bias_initializer'])(x)
                 
@@ -1312,13 +1369,229 @@ class MLSurgery():
 
         #_, acc              = model_pruning.evaluate(self.data_te[0], self.data_te[1], verbose=0, batch_size = 32)
 
-        #MLSurgery.weight_observation(model_pruning)
+        MLSurgery.fun_weight_observation(model_pruning)
         
         model_plugbacked    = MLSurgery.fun_generate_model_plugbacked(model_pruning, info)
 
         _, acc              = model_plugbacked.evaluate(self.data_te[0], self.data_te[1], verbose=0, batch_size = 32)  
 
         return model_plugbacked, acc
+    
+
+    
+    def fun_culling(self, model):
+
+        model_clone = tf.keras.models.clone_model(model)
+        model_clone.set_weights(model.get_weights())
+
+        model_clone.compile(optimizer = self.optimizer, 
+                            loss      = self.loss, 
+                            metrics   = self.metrics )
+        
+
+        info = {}
+        for layer in model_clone.layers:
+            #print(layer.name)
+            info_keys         = list(info.keys())
+            if 'conv2d' in layer.name:
+                weight             = layer.weights[0].numpy()
+                bias               = layer.weights[1].numpy()
+                
+                ind_good4          = [i0 for i0 in range(weight.shape[-1]) if weight[:,:,:,i0].sum() != 0]
+                bias_good          = bias[ind_good4]
+
+                if len(info_keys)   == 0:
+                    weight_good     = weight[:,:,:,ind_good4]
+                else:
+                    ind_good3          = deepcopy(info[info_keys[-1]]['ind_good_channel'])
+                    weight_good        = weight[:,:,ind_good3, :][:,:,:,ind_good4]
+
+                ind_good_row = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:][::-1])[ind_good4,:,:])
+                
+                weight_initializer = tf.initializers.constant(weight_good)
+                bias_initializer   = tf.initializers.constant(bias_good)
+
+                # gather information
+                info[layer.name]                          = {}
+                info[layer.name]['ind_good_channel']      = ind_good4
+                info[layer.name]['ind_good_row']          = ind_good_row
+                info[layer.name]['weight_initializer']    = weight_initializer
+                info[layer.name]['bias_initializer']      = bias_initializer
+                info[layer.name]['filters']               = weight_good.shape[-1]
+                info[layer.name]['kernel_size']           = layer.kernel_size
+                info[layer.name]['strides']               = layer.strides
+                info[layer.name]['padding']               = layer.padding
+
+
+            elif 'batch_normalization' in layer.name:
+
+                if len(info_keys)   == 0:
+                    gamma             = layer.weights[0].numpy()
+                    beta              = layer.weights[1].numpy()
+                    moving_mean       = layer.weights[2].numpy()
+                    moving_variance   = layer.weights[3].numpy()
+                    
+                    ind_good_channel  = list(range(gamma.shape[0]))
+                    ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:][::-1])) #np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:]))
+                    
+
+                else:
+                    ind_good_channel  = info[info_keys[-1]]['ind_good_channel']
+                    ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:][::-1])[ind_good_channel,:,:])#np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:])[:,:,ind_good_channel]) #info[info_keys[-1]]['ind_good_row']
+
+                    gamma             = layer.weights[0].numpy()[ind_good_channel]
+                    beta              = layer.weights[1].numpy()[ind_good_channel]
+                    moving_mean       = layer.weights[2].numpy()[ind_good_channel]
+                    moving_variance   = layer.weights[3].numpy()[ind_good_channel]
+
+                gamma_initializer             = tf.initializers.constant(gamma)
+                beta_initializer              = tf.initializers.constant(beta)
+                moving_mean_initializer       = tf.initializers.constant(moving_mean)
+                moving_variance_initializer   = tf.initializers.constant(moving_variance)
+
+                # gather information
+                info[layer.name]                                   = {}
+                info[layer.name]['ind_good_channel']               = ind_good_channel
+                info[layer.name]['ind_good_row']                   = ind_good_row
+                info[layer.name]['gamma_initializer_initializer']  = gamma_initializer
+                info[layer.name]['beta_initializer']               = beta_initializer   
+                info[layer.name]['moving_mean_initializer']        = moving_mean_initializer 
+                info[layer.name]['moving_variance_initializer']    = beta_initializer 
+
+            elif 'pooling2d' in layer.name:
+                if (len(info_keys)   == 0): #or ('conv2d' in info_keys[-1]) or ('batch_normalization' in info_keys[-1]):
+                    ind_good_channel  = list(range(layer.output_shape[-1]))
+                    ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:][::-1]))#np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:]))
+                else:
+                    ind_good_channel  = info[info_keys[-1]]['ind_good_channel']
+                    ind_good_row      = np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:][::-1])[ind_good_channel,:,:])#np.ndarray.flatten(np.array(range(np.prod(layer.output_shape[1:]))).reshape(layer.output_shape[1:])[:,:,ind_good_channel])
+                
+                # gather information 
+                info[layer.name]                                   = {}
+                info[layer.name]['ind_good_channel']               = ind_good_channel
+                info[layer.name]['ind_good_row']                   = ind_good_row
+
+            elif 'dense' in layer.name:
+                #info_keys         = list(info.keys())
+
+                weight             = layer.weights[0].numpy()
+                bias               = layer.weights[1].numpy()
+                
+                ind_good_column    = [i0 for i0 in range(weight.shape[-1]) if weight[:,i0].sum() != 0]
+                bias_good          = bias[ind_good_column]  
+
+                #print(len(ind_good_row))
+
+                if (len(info_keys)   == 0): #or ('conv2d' in info_keys[-1]) or ('batch_normalization' in info_keys[-1]):
+                    weight_good         = weight[:,ind_good_column]
+                else:
+                    ind_good_row        = deepcopy(info[info_keys[-1]]['ind_good_row'])
+                    weight_good         = weight[ind_good_row, :][:,ind_good_column]
+
+                    
+                ind_good_row        = deepcopy(ind_good_column) #np.ndarray.flatten(np.array(range(np.prod(weight.shape))).reshape(weight.shape)[ind_good_row, :][:,ind_good_column])
+                
+                weight_initializer = tf.initializers.constant(weight_good)
+                bias_initializer   = tf.initializers.constant(bias_good)
+
+                # gather information
+                info[layer.name]                          = {}
+                # info[layer.name]['ind_good']              = ind_good_row
+                info[layer.name]['ind_good_row']          = ind_good_row
+                info[layer.name]['weight_initializer']    = weight_initializer
+                info[layer.name]['bias_initializer']      = bias_initializer
+                info[layer.name]['units']                 = weight_good.shape[-1]
+
+
+        #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+        input_shape = model_clone.layers[0].get_input_shape_at(0)[1:]
+        inputs      = tf.keras.Input(input_shape)
+
+        for i0, layer in enumerate(model_clone.layers):
+            
+            if i0 == 0:
+                x = inputs
+
+            if 'conv2d' in layer.name:
+
+                x = tf.keras.layers.Conv2D(filters            = info[layer.name]['filters'],
+                                           kernel_size        = info[layer.name]['kernel_size'], 
+                                           strides            = info[layer.name]['strides'], 
+                                           padding            = info[layer.name]['padding'], 
+                                           kernel_initializer = info[layer.name]['weight_initializer'],
+                                           bias_initializer   = info[layer.name]['bias_initializer']) (x)
+
+            elif 'batch_normalization' in layer.name:
+                x = tf.keras.layers.BatchNormalization(gamma_initializer           = info[layer.name]['gamma_initializer_initializer'],
+                                                    beta_initializer            = info[layer.name]['beta_initializer'],
+                                                    moving_mean_initializer     = info[layer.name]['moving_mean_initializer'],
+                                                    moving_variance_initializer = info[layer.name]['moving_variance_initializer']) (x)
+
+            elif 'dense' in layer.name:
+                x = tf.keras.layers.Dense(units              = info[layer.name]['units'],
+                                        kernel_initializer = info[layer.name]['weight_initializer'],
+                                        bias_initializer   = info[layer.name]['bias_initializer']) (x)
+
+            else:
+                if i0 != 0:
+                    x = layer (x)
+
+            #print(layer.name, x.shape)
+
+        outputs      = x 
+
+        #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$       
+
+        model_culled = CustomModel(inputs, outputs)
+
+        global cond_transfer_learning
+
+        # transfer learning
+        cond_transfer_learning = True
+
+        optimizer    = self.optimizer
+        optimizer.lr = optimizer.lr * 10
+        model_culled.compile(optimizer = optimizer,
+                            loss       = self.loss,
+                            metrics    = self.metrics)
+        
+        model_culled.fit(self.data_tr[0],
+                         self.data_tr[1],
+                         epochs          = self.opt['epochs_culling'],
+                         verbose         = 0,
+                         validation_data = self.data_te,
+                         validation_freq = 1,
+                         callbacks       = self.callbacks)
+        
+        # fine-tuning
+        cond_transfer_learning = False
+        optimizer.lr = optimizer.lr / 10
+
+        model_culled.compile(optimizer = optimizer,
+                            loss       = self.loss,
+                            metrics    = self.metrics)
+        
+        model_culled.fit(self.data_tr[0],
+                         self.data_tr[1],
+                         epochs          = self.opt['epochs_culling'],
+                         verbose         = 0,
+                         validation_data = self.data_te,
+                         validation_freq = 1,
+                         callbacks       = self.callbacks)
+
+
+        
+        _, acc = model_culled.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
+
+
+
+
+
+
+
+
+        return model_culled, acc
 
     def run(self):
 
@@ -1351,10 +1624,15 @@ class MLSurgery():
 
             print('Packing-Aware Pruning      | TF-Optimization                            | End   | Validation Accuracy: {}'.format(acc))
 
+        if self.opt['culling_stat']:
+            print('Culling                    | Removing Filters and Weights               | Start |')
 
+            model, acc = MLSurgery.fun_culling(self, model)
+
+            print('Culling                    | Removing Filters and Weights               | End   | Validation Accuracy: {}'.format(acc))
 
         #MLSurgery.fun_plot_tiles(model)
-        MLSurgery.fun_weight_observation(model)
+        #MLSurgery.fun_weight_observation(model)
 
         shutil.rmtree(self.path_temp,            ignore_errors=True)
         shutil.rmtree(self.path + '__pycache__', ignore_errors=True)
@@ -1376,6 +1654,17 @@ def fun_data(name='mnist', calibrate = True):
         (datain_tr, dataou_tr), (datain_te, dataou_te) = tf.keras.datasets.cifar100.load_data()
     elif name == 'mnist':
         (datain_tr, dataou_tr), (datain_te, dataou_te) = tf.keras.datasets.mnist.load_data()
+
+    elif 'xray' in name:
+        '''
+        you need to have the data in the diretory: for example:
+        wget https://storage.googleapis.com/mplus/repo/ray/xray128.npy
+        and we have version 16, 32, 64, 128, 256, 512
+        '''
+        ((datain_tr, dataou_tr),(datain_te, dataou_te),(datain_vl, dataou_vl)) = np.load("./{}.npy".format(name), allow_pickle=True)
+        dataou_tr = dataou_tr.astype(np.int8)
+        dataou_te = dataou_te.astype(np.int8)
+
     elif name == 'electric_grid_stability':
         data = pd.read_csv('electrical_grid_stability_simulated_data.csv') 
  
@@ -1526,6 +1815,42 @@ def fun_model_example(name = 'mnist'):
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.Dropout(0.25)  (x[-1]))
 
+    elif 'xray' in name:
+        epochs = 50
+
+        num = int(name[4:])
+
+        versions = [16,32,64,128,256,512]
+        kernels  = [2,2,4,4,8,8]
+        strides  = [1,1,2,2,3,4]
+        
+        stride   = strides[versions.index(num)]
+        kernel   = kernels[versions.index(num)]
+
+
+        x.append(tf.keras.layers.Conv2D(filters = int(num), kernel_size=(kernel, kernel), strides=(stride, stride)) (x[-1]))
+        x.append(tf.keras.layers.ReLU()  (x[-1]))
+        x.append(tf.keras.layers.BatchNormalization()  (x[-1]))
+        x.append(tf.keras.layers.MaxPooling2D(pool_size=(kernel, kernel), strides = (2, 2))  (x[-1]))
+
+        x.append(tf.keras.layers.Conv2D(filters=int(num), kernel_size=(kernel, kernel), strides=(stride, stride))  (x[-1]))
+        x.append(tf.keras.layers.ReLU()  (x[-1]))
+        x.append(tf.keras.layers.BatchNormalization()  (x[-1]))
+        x.append(tf.keras.layers.MaxPooling2D(pool_size=(kernel, kernel), strides = (2, 2))  (x[-1]))
+
+        x.append(tf.keras.layers.Flatten()  (x[-1]))
+ 
+        x.append(tf.keras.layers.Dense(int(2*num)) (x[-1]))
+        x.append(tf.keras.layers.ReLU()  (x[-1]))
+        x.append(tf.keras.layers.Dropout(0.25)  (x[-1]))
+
+        x.append(tf.keras.layers.Dense(num) (x[-1]))
+        x.append(tf.keras.layers.ReLU()  (x[-1]))
+        x.append(tf.keras.layers.Dropout(0.25)  (x[-1]))
+
+
+
+
     else:
         print("ERROR | EXAMPLE IS NOT SUPPORTED YET!")
 
@@ -1549,6 +1874,11 @@ def fun_model_example(name = 'mnist'):
 
     model.summary()
 
+    callback = tf.keras.callbacks.EarlyStopping(
+    monitor='val_sparse_categorical_accuracy',
+    patience=25,
+    restore_best_weights=True)
+
     model.fit(
         datain_tr,
         dataou_tr,
@@ -1556,8 +1886,7 @@ def fun_model_example(name = 'mnist'):
         verbose = 1,
         validation_data=(datain_te, dataou_te),
         validation_freq=1,
-        callbacks = [reduce_lr]    
+        callbacks = [reduce_lr, callback]    
     )
 
     model.save('model.h5')
-

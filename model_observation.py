@@ -9,7 +9,7 @@ args = parser.parse_args()
 
 data_name = args.data_name
 
-custom_objects = {'DynamicPolyReLU_D2':DynamicPolyReLU_D2, 'DynamicPolyReLU_D3':DynamicPolyReLU_D3, 'DynamicPolyReLU_D4':DynamicPolyReLU_D4, 'Square':Square}
+custom_objects = {'DynamicPolyReLU_D2':DynamicPolyReLU_D2, 'DynamicPolyReLU_D3':DynamicPolyReLU_D3, 'DynamicPolyReLU_D4':DynamicPolyReLU_D4, 'Square':Square, 'CustomModel': CustomModel}
 
 model_culled     = tf.keras.models.load_model("./model_culled_{}.h5".format(data_name), custom_objects = custom_objects)
 
