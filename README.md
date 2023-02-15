@@ -18,25 +18,32 @@ from mlsurgery import *
 opt                                = {}
 
 opt['he_friendly_stat' ]           = True # set True if we need to make model HE-friendly
-opt['pruning_stat']                = True # set True if we want to prune and cul the model
+opt['pruning_stat']                = True # set True if we want to prune the model
+opt['culling_stat']                = True # set True if we want to cull the model
 
 # only if opt['he_friendly_stat'] == True
 opt['he_polynomial_Degree']        = 2  #Currently supports polynomial degrees 0, 2, 3, & 4 for making a model HE-friendly
 
 # if  opt['he_polynomial_Degree'] == 0, then set transfer and finetune epochs to 1
-opt['epochs_transfer']             = 10
-opt['epochs_finetune']             = 15
+opt['epochs_transfer']             = 25
+opt['epochs_finetune']             = 25
 opt['lr_transfer']                 = 0.00001
 opt['lr_finetune']                 = 0.000001
 opt['batch_size']                  = 128
+opt['patience']                    = 3 
 
 
 # only if opt['he_friendly_stat' ] == True 
-opt['epochs_pruning']              = 50
+opt['epochs_pruning']              = 25
+opt['epochs_culling']              = 25
 opt['minimum_acceptable_accuracy'] = 0.50
-opt['target_sparsity']             = 0.5 
+opt['target_sparsity']             = 0.75
 opt['begin_step']                  = 0 
 opt['frequency']                   = 100
+
+
+my_obj                             = MLSurgery(data_tr, data_vl, model, opt)
+model_culled, acc                  = my_obj.run()
 
 ```
 
@@ -48,4 +55,4 @@ Step 0: Clone the library with an access token ```git clone https://YOURTOKEN@gi
 
 Step 1: Run ```mlsurgery_example.py``` (default is set for ```'mnist'```)
 
-Step 2: Verify ```model_pruned.h5```
+Step 2: Verify ```model_culled.h5```
