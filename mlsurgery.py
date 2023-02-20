@@ -135,13 +135,27 @@ class Features_4D_To_2D(tf.keras.layers.Layer):
             inputs = tf.keras.layers.ZeroPadding2D(padding=1)(inputs)
             #print('here', inputs.shape)
         
-        batch_size, width, hight, depth = inputs.shape
+        batch_size, width, height, depth = inputs.shape
 
         # num_strides_horizontal  = int(tf.math.ceil((width-self.kernel_size[0])/self.strides[0]) + 1)
         # num_strides_vertical    = int(tf.math.ceil((hight-self.kernel_size[1])/self.strides[1]) + 1)
 
-        num_strides_horizontal  = int(-((width-self.kernel_size[0])//-self.strides[0]) + 1)
-        num_strides_vertical    = int(-((hight-self.kernel_size[1])//-self.strides[1]) + 1)
+        # num_strides_horizontal  = int(-((width-self.kernel_size[0])//-self.strides[0]) + 1)
+        # num_strides_vertical    = int(-((hight-self.kernel_size[1])//-self.strides[1]) + 1)
+
+        # num_strides_horizontal  = int(-((self.width-self.kernel_size[0])//-self.strides[0]) + 1)
+        # num_strides_vertical    = int(-((self.height-self.kernel_size[1])//-self.strides[1]) + 1)
+
+        num_strides_horizontal  = int(((width-self.kernel_size[0])//self.strides[0]) + 1)
+        num_strides_vertical    = int(((height-self.kernel_size[1])//self.strides[1]) + 1)
+
+        # print(self.kernel_size[0])
+        # print(self.strides[0])
+        # print(width)
+
+        # print(num_strides_horizontal)
+
+        # sdfdsf =sdsdf
 
 
         output_rank             = int(num_strides_vertical * num_strides_horizontal)
@@ -152,7 +166,7 @@ class Features_4D_To_2D(tf.keras.layers.Layer):
 
         ind_vertical_start      = tf.expand_dims(tf.range(0,int(num_strides_vertical * self.strides[1]), self.strides[1]), axis = 0)
         ind_vertical_end        = ind_vertical_start + self.kernel_size[1]
-        ind_vertical_end        = tf.concat([ind_vertical_end[:,:-1], tf.expand_dims(tf.expand_dims(tf.constant(hight), axis = 0), axis = 0)], axis = 1) 
+        ind_vertical_end        = tf.concat([ind_vertical_end[:,:-1], tf.expand_dims(tf.expand_dims(tf.constant(height), axis = 0), axis = 0)], axis = 1) 
 
         ind_horizontal_start    = tf.squeeze(ind_horizontal_start)
         ind_horizontal_end      = tf.squeeze(ind_horizontal_end)
@@ -212,8 +226,11 @@ class Features_2D_To_4D(tf.keras.layers.Layer):
     def call(self, inputs):
 
         
-        num_strides_horizontal  = int(-((self.width-self.kernel_size[0])//-self.strides[0]) + 1)
-        num_strides_vertical    = int(-((self.height-self.kernel_size[1])//-self.strides[1]) + 1)
+        # num_strides_horizontal  = int(-((self.width-self.kernel_size[0])//-self.strides[0]) + 1)
+        # num_strides_vertical    = int(-((self.height-self.kernel_size[1])//-self.strides[1]) + 1)
+
+        num_strides_horizontal  = int(((self.width-self.kernel_size[0])//self.strides[0]) + 1)
+        num_strides_vertical    = int(((self.height-self.kernel_size[1])//self.strides[1]) + 1)
 
         # print(self.width, self.kernel_size[0], self.strides[0])
         # print(inputs.shape, (num_strides_horizontal, num_strides_vertical, inputs.shape[-1]))
@@ -1232,15 +1249,21 @@ class MLSurgery():
         info        = {}
 
         for i0 , layer in enumerate(model_clone.layers[1:-1]):
+            
 
             if i0 == 0:
                 x = inputs
+
+            #print(layer.name, x.shape)
 
             name  = layer.name
 
             if 'conv2d' in name:
 
+                
+
                 info = MLSurgery.conv2d_information_extractor(self, layer, info = info)
+                #print(info[name]['padding'])
                 
                 x = Features_4D_To_2D(info[name]['kernel_size'], info[name]['strides']) (x, padding = info[name]['padding'])
                 x = tfmot.sparsity.keras.prune_low_magnitude(tf.keras.layers.Dense(units              = info[name]['num_filters'], 
@@ -1251,6 +1274,11 @@ class MLSurgery():
 
             elif 'dense' in name:
                 info = MLSurgery.dense_infomation_extractor(self, layer, info = info)
+
+                
+                # print(layer.units)
+                # print(x.shape)
+                # print(info[name]['weight_initializer'].value.shape)
 
                 x = tfmot.sparsity.keras.prune_low_magnitude(tf.keras.layers.Dense(units              = layer.units,
                                                                                    kernel_initializer = info[name]['weight_initializer'],
@@ -1730,7 +1758,7 @@ def fun_model_example(name = 'mnist'):
 
     if name == 'mnist':
 
-        epochs = 2
+        epochs = 10
 
 
         '''
@@ -1747,23 +1775,23 @@ def fun_model_example(name = 'mnist'):
 
         '''
 
-        #inputs = tf.keras.layers.Input((28,28,1))
-        x.append(tf.keras.layers.Conv2D(filters = 32,kernel_size = (5,5), strides = (1,1))( x[-1]))
-        x.append(tf.keras.layers.AveragePooling2D(pool_size = (2,2), strides = (2,2)) (x[-1]))
+
+        x.append(tf.keras.layers.Conv2D(filters = 32,kernel_size = (5,5), strides = (2,2))( x[-1]))
+        #x.append(tf.keras.layers.AveragePooling2D(pool_size = (2,2), strides = (2,2)) (x[-1]))
         x.append(tf.keras.layers.BatchNormalization() (x[-1]))
         x.append(tf.keras.layers.ReLU()(x[-1]))
         x.append(tf.keras.layers.Flatten()(x[-1]))
-        x.append(tf.keras.layers.Dense(units = 1024) (x[-1]))
+        x.append(tf.keras.layers.Dense(units = 256) (x[-1]))
         x.append(tf.keras.layers.ReLU() (x[-1]))
         x.append(tf.keras.layers.Dropout(0.4) (x[-1]))
-        # outputs = tf.keras.layers.Dense(10) (x)
 
-        # model_original = tf.keras.Model(inputs, outputs)
-        # model_original.compile(optimizer = 'adam',
-        #                     loss      = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-        #                     metrics   = ['accuracy'])
-
-        # model_original.summary()
+        # x.append(tf.keras.layers.Flatten()(x[-1]))
+        # x.append(tf.keras.layers.Dense(units = 512) (x[-1]))
+        # x.append(tf.keras.layers.ReLU()(x[-1]))
+        # x.append(tf.keras.layers.Dense(units = 256) (x[-1]))
+        # x.append(tf.keras.layers.ReLU()(x[-1]))  
+        # x.append(tf.keras.layers.Dense(units = 128) (x[-1]))
+        # x.append(tf.keras.layers.ReLU()(x[-1]))  
 
 
     elif name == 'cifar10':
@@ -1890,3 +1918,5 @@ def fun_model_example(name = 'mnist'):
     )
 
     model.save('model.h5')
+
+
