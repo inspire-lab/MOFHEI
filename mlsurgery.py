@@ -324,7 +324,10 @@ class MLSurgery():
         self.lr                       = model_original.optimizer.lr.numpy()
         self.optimizer                = model_original.optimizer
         self.loss                     = model_original.loss
-        self.metrics                  = [tf.keras.metrics.SparseCategoricalAccuracy()] #model_original.metrics
+        if opt['problem'] == 'classification':
+            self.metrics = [tf.keras.metrics.SparseCategoricalAccuracy()]
+        else:
+            self.metrics                  = ['val_loss']#[tf.keras.metrics.SparseCategoricalAccuracy()] #model_original.metrics
         self.path                     = os.getcwd()
         self.path_temp                = os.path.join(self.path, 'temp')
 
@@ -366,6 +369,7 @@ class MLSurgery():
         #     metrics = [metrics]
 
         model_clone.compile(self.optimizer, loss = self.loss, metrics = self.metrics)
+        #model_clone.compile(self.optimizer, loss = self.loss)
         
         return model_clone
 
@@ -472,6 +476,7 @@ class MLSurgery():
             optimizer = deepcopy(self.optimizer)
 
         model_case.compile(optimizer = optimizer, loss = self.loss, metrics = self.metrics)
+        #model_case.compile(optimizer = optimizer, loss = self.loss)
 
         return model_case 
         
@@ -543,6 +548,7 @@ class MLSurgery():
                     
                     # one round of fine-tuning
                     model_clone.compile(optimizer = self.optimizer, loss = self.loss, metrics = self.metrics)
+                    #model_clone.compile(optimizer = self.optimizer, loss = self.loss)
                     model_clone.fit(self.data_tr[0],self.data_tr[1], epochs = self.opt['epochs_finetune'], shuffle = True, batch_size = self.opt['batch_size'], verbose = 0, validation_data = self.data_te, callbacks = self.callbacks)
                     
                 else:
@@ -621,6 +627,7 @@ class MLSurgery():
                     
                     # one round of fine-tuning
                     model_clone.compile(optimizer = self.optimizer, loss = self.loss, metrics = self.metrics)
+                    #model_clone.compile(optimizer = self.optimizer, loss = self.loss)
                     model_clone.fit(self.data_tr[0],self.data_tr[1], epochs = self.opt['epochs_finetune'], shuffle = True, batch_size = self.opt['batch_size'], verbose = 0, validation_data = self.data_te, callbacks = self.callbacks)
                     
                 else:
@@ -1040,6 +1047,7 @@ class MLSurgery():
         optimizer.lr = optimizer.lr/10
 
         model_custom.compile(optimizer = optimizer, loss=self.loss, metrics = self.metrics)
+        #model_custom.compile(optimizer = optimizer, loss=self.loss)
 
         model_custom.fit(self.data_tr[0],self.data_tr[1], batch_size = self.opt['batch_size'], epochs = self.opt['pruning_epochs'], shuffle = True, verbose = 0, validation_data = self.data_te)
 
@@ -1416,7 +1424,9 @@ class MLSurgery():
                             loss      = self.loss, 
                             metrics   = self.metrics )
         
-
+        # model_clone.compile(optimizer = self.optimizer, 
+        #                     loss      = self.loss)
+        
         info = {}
         for layer in model_clone.layers:
             #print(layer.name)
@@ -1583,6 +1593,9 @@ class MLSurgery():
         model_culled.compile(optimizer = optimizer,
                             loss       = self.loss,
                             metrics    = self.metrics)
+
+        # model_culled.compile(optimizer = optimizer,
+        #                     loss       = self.loss)
         
         model_culled.fit(self.data_tr[0],
                          self.data_tr[1],
@@ -1599,6 +1612,9 @@ class MLSurgery():
         model_culled.compile(optimizer = optimizer,
                             loss       = self.loss,
                             metrics    = self.metrics)
+
+        # model_culled.compile(optimizer = optimizer,
+        #                     loss       = self.loss)
         
         model_culled.fit(self.data_tr[0],
                          self.data_tr[1],
@@ -1714,6 +1730,17 @@ def fun_data(name='mnist', calibrate = True):
 
         datain_tr, datain_te = fun_calibrate(datain_tr, datain_te, feature_range = (0, 1))
 
+    elif name == 'hepex-ae63-mnist':
+
+        (datain_tr, _), (datain_te, _) = tf.keras.datasets.mnist.load_data()
+        dataou_tr = datain_tr
+        dataou_te = datain_te
+
+        if len(datain_tr.shape) == 3:
+            dataou_tr = np.expand_dims(dataou_tr, axis = 3)
+            dataou_te = np.expand_dims(dataou_te, axis = 3)
+
+
     else:
         print('ERROR')
         (datain_tr, dataou_tr), (datain_te, dataou_te) = (None, None), (None, None)
@@ -1751,10 +1778,15 @@ def fun_save_model(model, filepath):
 
 def fun_model_example(name = 'mnist'):
     
-    datain_tr, dataou_tr, datain_te, dataou_te = fun_data(name = name, calibrate = True)
+    data_name = name.split('-')[-1]
+
+    datain_tr, dataou_tr, datain_te, dataou_te = fun_data(name = data_name, calibrate = True)
     out_size = np.unique(dataou_tr).shape[0]
 
     x = [tf.keras.Input(datain_tr.shape[1:])]
+
+    loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    metrics = [tf.keras.metrics.SparseCategoricalAccuracy()]
 
     if name == 'mnist':
 
@@ -1793,6 +1825,8 @@ def fun_model_example(name = 'mnist'):
         # x.append(tf.keras.layers.Dense(units = 128) (x[-1]))
         # x.append(tf.keras.layers.ReLU()(x[-1]))  
 
+        x.append(tf.keras.layers.Dense(out_size)  (x[-1]))
+
 
     elif name == 'cifar10':
 
@@ -1827,6 +1861,8 @@ def fun_model_example(name = 'mnist'):
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.Dropout(0.25)  (x[-1]))
 
+        x.append(tf.keras.layers.Dense(out_size)  (x[-1]))
+
     elif name == 'electric_grid_stability':
 
         epochs = 10
@@ -1842,6 +1878,8 @@ def fun_model_example(name = 'mnist'):
         x.append(tf.keras.layers.Dense(256) (x[-1]))
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.Dropout(0.25)  (x[-1]))
+
+        x.append(tf.keras.layers.Dense(out_size)  (x[-1]))
 
     elif 'xray' in name:
         epochs = 50
@@ -1876,13 +1914,32 @@ def fun_model_example(name = 'mnist'):
         x.append(tf.keras.layers.ReLU()  (x[-1]))
         x.append(tf.keras.layers.Dropout(0.25)  (x[-1]))
 
+        x.append(tf.keras.layers.Dense(out_size)  (x[-1]))
+
+    elif name == 'hepex-ae63-mnist':
+
+        epochs = 2
+
+        x.append(tf.keras.layers.Flatten() (x[-1]))
+        x.append(tf.keras.layers.Dense(64) (x[-1]))
+        x.append(tf.keras.layers.ReLU()  (x[-1]))  
+        x.append(tf.keras.layers.Dense(32) (x[-1]))
+        x.append(tf.keras.layers.ReLU()  (x[-1]))               
+        x.append(tf.keras.layers.Dense(64) (x[-1]))
+        x.append(tf.keras.layers.ReLU()  (x[-1]))
+        x.append(tf.keras.layers.Dense(np.prod(datain_tr.shape[1:])) (x[-1]))
+        x.append(tf.keras.layers.ReLU()  (x[-1]))
+        x.append(tf.keras.layers.Reshape(datain_tr.shape[1:]) (x[-1]) )      
+
+        loss = 'mse'
+        metrics = ['val_loss']
 
 
 
     else:
         print("ERROR | EXAMPLE IS NOT SUPPORTED YET!")
 
-    x.append(tf.keras.layers.Dense(out_size)  (x[-1]))
+    
 
     model = tf.keras.Model(x[0], x[-1])
 
@@ -1896,9 +1953,13 @@ def fun_model_example(name = 'mnist'):
                                                     cooldown=0,
                                                     min_lr=0.0000001)
 
+    # model.compile(optimizer = tf.keras.optimizers.Adam(0.001), 
+    #     loss      = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    #     metrics   = [tf.keras.metrics.SparseCategoricalAccuracy()])
+
     model.compile(optimizer = tf.keras.optimizers.Adam(0.001), 
-        loss      = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-        metrics   = [tf.keras.metrics.SparseCategoricalAccuracy()])
+        loss      = loss,
+        metrics = metrics)
 
     model.summary()
 
@@ -1907,7 +1968,26 @@ def fun_model_example(name = 'mnist'):
     patience=25,
     restore_best_weights=True)
 
-    model.fit(
+    if 'hepex' in name:
+
+        model.fit(
+            datain_tr,
+            datain_tr,
+            epochs=epochs,
+            verbose = 1,
+            validation_data=(datain_te, datain_te),
+            validation_freq=1,
+            callbacks = [reduce_lr, callback]    
+        )
+
+        dataes_te = model.predict(datain_te[:200,:,:,0])
+
+        fun_imshow(dataes_te, 'est_recon.png', num_h = 20, num_v = 10)
+        fun_imshow(datain_te, 'rel_recon.png', num_h = 20, num_v = 10)
+
+    else:
+
+        model.fit(
         datain_tr,
         dataou_tr,
         epochs=epochs,
@@ -1919,4 +1999,25 @@ def fun_model_example(name = 'mnist'):
 
     model.save('model.h5')
 
+def fun_imshow(data, name, num_h = 10, num_v = 10):
 
+   
+    width     = int(num_h *  data.shape[1]) 
+    height    = int(num_v *  data.shape[2])
+    h         = data.shape[1]
+    v         = data.shape[2]
+    img       = np.empty((width, height))
+
+    c_h = 0
+    c   = 0
+    for _ in range(num_h):
+        c_v = 0
+        for _ in range(num_v):
+            img[c_h : c_h + h, c_v : c_v + v] = data[c,:,:,0]
+            c = c + 1
+
+            c_v = c_v + v
+
+        c_h = c_h + h
+
+    plt.imsave(name, img, cmap = 'gray', dpi = 600)
