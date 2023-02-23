@@ -11,7 +11,7 @@ data_name = args.data_name
 
 custom_objects = {'DynamicPolyReLU_D2':DynamicPolyReLU_D2, 'DynamicPolyReLU_D3':DynamicPolyReLU_D3, 'DynamicPolyReLU_D4':DynamicPolyReLU_D4, 'Square':Square, 'CustomModel': CustomModel}
 
-model_original   = tf.keras.models.load_model("./model.h5".format(data_name), custom_objects = custom_objects)
+model_original   = tf.keras.models.load_model("./model_original_{}.h5".format(data_name), custom_objects = custom_objects)
 model_culled     = tf.keras.models.load_model("./model_culled_{}.h5".format(data_name), custom_objects = custom_objects)
 
 MLSurgery.fun_clear()
@@ -30,12 +30,12 @@ model_culled_clone.compile(optimizer = tf.keras.optimizers.Adam(0.0001),
 datain_tr, dataou_tr, datain_vl, dataou_vl = fun_data(name = data_name, calibrate = True)
 data_tr, data_vl                           = (datain_tr, dataou_tr), (datain_vl, dataou_vl)
 
-_, acc = model_culled_clone.evaluate(data_vl[0], data_vl[1], verbose = 0, batch_size = 32)
+_, msm = model_culled_clone.evaluate(data_vl[0], data_vl[1], verbose = 0, batch_size = 32)
 
 print("======================")
 print("======================")
 
-print("Accuracy of the culled {} model is {}".format(data_name, acc))
+print("Measurement (e.g., MSE or ACC) of the culled {} model is {}".format(data_name, msm))
 
 print("======================")
 print("======================")

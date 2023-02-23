@@ -75,14 +75,19 @@ class PDynamicPolyReLU_D4(DynamicPolyReLU_D3, tfmot.sparsity.keras.PrunableLayer
         return [self.kernel]
 
 class MyThresholdCallback(tf.keras.callbacks.Callback):
-    def __init__(self, threshold):
+    def __init__(self, threshold, problem):
         super(MyThresholdCallback, self).__init__()
         self.threshold = threshold
+        self.problem = problem
 
     def on_epoch_end(self, epoch, logs=None): 
         #print(logs.keys())
-        val_acc = logs["val_sparse_categorical_accuracy"]
-        if val_acc >= self.threshold:
+        if self.problem == 'classification':
+            val_msm = logs["val_sparse_categorical_accuracy"]
+        else:
+            val_msm = logs["val_loss"]
+            
+        if val_msm >= self.threshold:
             self.model.stop_training = True
 
 class CustomModel(tf.keras.Model):
@@ -326,15 +331,17 @@ class MLSurgery():
         self.loss                     = model_original.loss
         if opt['problem'] == 'classification':
             self.metrics = [tf.keras.metrics.SparseCategoricalAccuracy()]
+            self.monitor = 'val_sparse_categorical_accuracy'
         else:
-            self.metrics                  = ['val_loss']#[tf.keras.metrics.SparseCategoricalAccuracy()] #model_original.metrics
+            self.metrics = [tf.keras.metrics.MeanSquaredError(name='mean_squared_error', dtype=None)]#[tf.keras.metrics.SparseCategoricalAccuracy()] #model_original.metrics
+            self.monitor = 'val_loss'
         self.path                     = os.getcwd()
         self.path_temp                = os.path.join(self.path, 'temp')
 
-        _, self.model_original_acc_te = model_original.evaluate(data_te[0], data_te[1], verbose = 0, batch_size = 32)
+        _, self.model_original_msm_te = model_original.evaluate(data_te[0], data_te[1], verbose = 0, batch_size = 32)
         
-        callback_threshold            = MyThresholdCallback(threshold = self.model_original_acc_te)
-        callback_patience             = tf.keras.callbacks.EarlyStopping(monitor              = 'val_sparse_categorical_accuracy',
+        callback_threshold            = MyThresholdCallback(threshold = self.model_original_msm_te, problem = self.opt['problem'])
+        callback_patience             = tf.keras.callbacks.EarlyStopping(monitor              = self.monitor,
                                                                          patience             = opt['patience'],
                                                                          restore_best_weights = True)
 
@@ -534,10 +541,10 @@ class MLSurgery():
                 model_clone = MLSurgery.fun_model_create(self, MLSurgery.fun_model_stack(df_clone), lr = lr_transfer)
 
                 model_clone.fit(self.data_tr[0], self.data_tr[1], epochs = 1, verbose = 0, shuffle = True, batch_size = self.opt['batch_size'], validation_data = self.data_te, callbacks = self.callbacks)
-                _ , acc_case = model_clone.evaluate(self.data_te[0], self.data_te[1],  verbose = 0, batch_size = 32)
+                _ , msm_case = model_clone.evaluate(self.data_te[0], self.data_te[1],  verbose = 0, batch_size = 32)
                 
 
-                if (acc_case >= self.model_original_acc_te) or (c >= self.opt['epochs_transfer']):
+                if (msm_case >= self.model_original_msm_te) or (c >= self.opt['epochs_transfer']):
                     cond = False
 
                     for layer in model_clone.layers:
@@ -556,9 +563,9 @@ class MLSurgery():
                     lr_transfer = lr_transfer *0.5
 
 
-        _, acc_case = model_clone.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
+        _, msm_case = model_clone.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
 
-        return model_clone, acc_case 
+        return model_clone, msm_case 
 
     def fun_relu2poly(self, model):
 
@@ -617,9 +624,9 @@ class MLSurgery():
                 model_clone = MLSurgery.fun_model_create(self, MLSurgery.fun_model_stack(df_clone), lr = lr_transfer)
                 model_clone.fit(self.data_tr[0], self.data_tr[1], epochs = 1, verbose = 0, shuffle = True, batch_size = self.opt['batch_size'], validation_data = self.data_te, callbacks = self.callbacks)
                 
-                _, acc_case = model_clone.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
+                _, msm_case = model_clone.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
 
-                if (acc_case >= self.model_original_acc_te) or (c >= self.opt['epochs_transfer']):
+                if (msm_case >= self.model_original_msm_te) or (c >= self.opt['epochs_transfer']):
                     cond = False
 
                     for layer in model_clone.layers:
@@ -634,9 +641,9 @@ class MLSurgery():
                     c = c + 1
                     lr_transfer = lr_transfer *0.5
 
-        _, acc_case = model_clone.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
+        _, msm_case = model_clone.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
 
-        return model_clone, acc_case
+        return model_clone, msm_case
 
     # def fun_prun_nopacking(self, model):
 
@@ -682,9 +689,9 @@ class MLSurgery():
 
     #     model_pruned.compile(optimizer=self.optimizer, loss=self.loss, metrics = self.metrics)
 
-    #     _, acc_case = model_pruned.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
+    #     _, msm_case = model_pruned.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
         
-    #     return model_pruned, acc_case
+    #     return model_pruned, msm_case
 
     # def fun_best_tile_configuration_2d(self, mat_shape):
 
@@ -1107,13 +1114,13 @@ class MLSurgery():
 
     #     model_custom = MLSurgery.fun_custom_training(self, model_clone)
 
-    #     _, acc_case = model_custom.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
+    #     _, msm_case = model_custom.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
 
-    #     return model_custom, acc_case
+    #     return model_custom, msm_case
 
     def fun_evaluate(self, model):
-        _, acc = model.evaluate(self.data_tr[0], self.data_tr[1], verbose = 0, batch_size = 32)
-        return acc
+        _, msm = model.evaluate(self.data_tr[0], self.data_tr[1], verbose = 0, batch_size = 32)
+        return msm
     
     def conv2d_information_extractor(self, layer, info = {}):
         '''
@@ -1256,8 +1263,11 @@ class MLSurgery():
 
         info        = {}
 
+        dense_names = [layer.name for layer in model_clone.layers if 'dense' in layer.name ]
+
+        # find latest dense layer
+
         for i0 , layer in enumerate(model_clone.layers[1:-1]):
-            
 
             if i0 == 0:
                 x = inputs
@@ -1267,8 +1277,6 @@ class MLSurgery():
             name  = layer.name
 
             if 'conv2d' in name:
-
-                
 
                 info = MLSurgery.conv2d_information_extractor(self, layer, info = info)
                 #print(info[name]['padding'])
@@ -1280,14 +1288,14 @@ class MLSurgery():
                 
                 x = Features_2D_To_4D(info[name]['width'], info[name]['height'], info[name]['kernel_size'], info[name]['strides'], info[name]['padding']) (x)
 
-            elif 'dense' in name:
+            elif ('dense' in name) and (name !=  dense_names[-1]):
+        
                 info = MLSurgery.dense_infomation_extractor(self, layer, info = info)
 
-                
                 # print(layer.units)
                 # print(x.shape)
                 # print(info[name]['weight_initializer'].value.shape)
-
+                
                 x = tfmot.sparsity.keras.prune_low_magnitude(tf.keras.layers.Dense(units              = layer.units,
                                                                                    kernel_initializer = info[name]['weight_initializer'],
                                                                                    bias_initializer   = info[name]['bias_initializer']),  **info[name]['pruning_params']) (x)
@@ -1298,9 +1306,9 @@ class MLSurgery():
         outputs = model_clone.layers[-1] (x) # you may need to clone it first
 
         model_pruning = tf.keras.Model(inputs, outputs)
-        model_pruning.compile(optimizer = model.optimizer, 
-                              loss      = model.loss,
-                              metrics   = model.metrics[-1:])
+        model_pruning.compile(optimizer = self.optimizer, 
+                              loss      = self.loss,
+                              metrics   = self.metrics)
         
         #model_pruning.summary()
 
@@ -1328,10 +1336,10 @@ class MLSurgery():
                 plt.title(layer.name)
                 plt.savefig(name)
 
-    def fun_generate_model_plugbacked(model, info):
+    def fun_generate_model_plugbacked(self, model, info):
 
         '''
-        model_plugbacked = fun_generate_model_plugbacked(model, info)
+        model_plugbacked = fun_generate_model_plugbacked(self, model, info)
         '''
         
         keys        = list(info.keys())
@@ -1386,9 +1394,9 @@ class MLSurgery():
         outputs  = model.layers[-1] (x)
 
         model_plugbacked = tf.keras.Model(inputs, outputs)
-        model_plugbacked.compile(optimizer = model.optimizer,
-                                 loss      = model.loss,
-                                 metrics   = model.metrics[-1:])
+        model_plugbacked.compile(optimizer = self.optimizer,
+                                 loss      = self.loss,
+                                 metrics   = self.metrics)
 
         #model_plugbacked.summary()
 
@@ -1396,10 +1404,10 @@ class MLSurgery():
 
     def fun_tfmot_prune(self, model):
         '''
-        model, acc = fun_tfmot_prune(self, model)
+        model, msm = fun_tfmot_prune(self, model)
         '''
         model_pruning, info = MLSurgery.fun_generate_model_pruning(self, model)
-        callbacks           = [MyThresholdCallback(threshold = self.model_original_acc_te), tfmot.sparsity.keras.UpdatePruningStep()]
+        callbacks           = [MyThresholdCallback(threshold = self.model_original_msm_te, problem=self.opt['problem']), tfmot.sparsity.keras.UpdatePruningStep()]
         
         model_pruning.fit(self.data_tr[0],self.data_tr[1], epochs = self.opt['epochs_pruning'], verbose = 0, shuffle = True, batch_size = self.opt['batch_size'], validation_data = self.data_te, callbacks = callbacks)
 
@@ -1407,11 +1415,11 @@ class MLSurgery():
 
         MLSurgery.fun_weight_observation(model_pruning)
         
-        model_plugbacked    = MLSurgery.fun_generate_model_plugbacked(model_pruning, info)
+        model_plugbacked    = MLSurgery.fun_generate_model_plugbacked(self, model_pruning, info)
 
-        _, acc              = model_plugbacked.evaluate(self.data_te[0], self.data_te[1], verbose=0, batch_size = 32)  
+        _, msm              = model_plugbacked.evaluate(self.data_te[0], self.data_te[1], verbose=0, batch_size = 32)  
 
-        return model_plugbacked, acc
+        return model_plugbacked, msm
     
 
     
@@ -1626,7 +1634,7 @@ class MLSurgery():
 
 
         
-        _, acc = model_culled.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
+        _, msm = model_culled.evaluate(self.data_te[0], self.data_te[1], verbose = 0, batch_size = 32)
 
 
 
@@ -1635,7 +1643,7 @@ class MLSurgery():
 
 
 
-        return model_culled, acc
+        return model_culled, msm
 
     def run(self):
 
@@ -1643,37 +1651,37 @@ class MLSurgery():
 
         MLSurgery.fun_clear()
 
-        print('Accuracy of The Original Model: {}'.format(self.model_original_acc_te))
+        print('Accuracy of The Original Model: {}'.format(self.model_original_msm_te))
         print('-------------------------------------------------------------------------------------------------------------------------')
 
         if self.opt['he_friendly_stat']:
             
             print('Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | Start |')
 
-            model, acc = MLSurgery.fun_max2ave(self, model)
+            model, msm = MLSurgery.fun_max2ave(self, model)
 
-            print('Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | End   | Validation Accuracy: {}'.format(acc))
+            print('Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | End   | Validation measurement: {}'.format(msm))
 
-            print('Make The Model HE-Friendly | Converting ReLUs into Polynomials          | Start |')
+            print('Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | Start |')
 
-            model, acc = MLSurgery.fun_relu2poly(self, model)
+            model, msm = MLSurgery.fun_relu2poly(self, model)
 
-            print('Make The Model HE-Friendly | Converting ReLUs into Polynomials          | End   | Validation Accuracy: {}'.format(acc))
+            print('Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | End   | Validation measurement: {}'.format(msm))
 
 
         if self.opt['pruning_stat']:
             print('Packing-Aware Pruning      | TF-Optimization                            | Start |')
 
-            model, acc = MLSurgery.fun_tfmot_prune(self, model)
+            model, msm = MLSurgery.fun_tfmot_prune(self, model)
 
-            print('Packing-Aware Pruning      | TF-Optimization                            | End   | Validation Accuracy: {}'.format(acc))
+            print('Packing-Aware Pruning      | TF-Optimization                            | End   | Validation measurement: {}'.format(msm))
 
         if self.opt['culling_stat']:
             print('Culling                    | Removing Filters and Weights               | Start |')
 
-            model, acc = MLSurgery.fun_culling(self, model)
+            model, msm = MLSurgery.fun_culling(self, model)
 
-            print('Culling                    | Removing Filters and Weights               | End   | Validation Accuracy: {}'.format(acc))
+            print('Culling                    | Removing Filters and Weights               | End   | Validation measurement: {}'.format(msm))
 
         #MLSurgery.fun_plot_tiles(model)
         #MLSurgery.fun_weight_observation(model)
@@ -1681,7 +1689,7 @@ class MLSurgery():
         shutil.rmtree(self.path_temp,            ignore_errors=True)
         shutil.rmtree(self.path + '__pycache__', ignore_errors=True)
 
-        return model, acc
+        return model, msm
 
 def fun_calibrate(datain_tr, datain_te, feature_range = (0, 1)):
     scalerin = MinMaxScaler(feature_range = feature_range)
@@ -1750,7 +1758,10 @@ def fun_data(name='mnist', calibrate = True):
         datain_te = np.expand_dims(datain_te, axis = 3)
 
     if calibrate:
-        datain_tr, dataou_tr, datain_te, dataou_te = datain_tr/255, dataou_tr, datain_te/255, dataou_te
+        if 'hepex' in name:
+            datain_tr, dataou_tr, datain_te, dataou_te = datain_tr/255, dataou_tr/255, datain_te/255, dataou_te/255
+        else:
+            datain_tr, dataou_tr, datain_te, dataou_te = datain_tr/255, dataou_tr, datain_te/255, dataou_te
 
     return datain_tr, dataou_tr, datain_te, dataou_te
 
@@ -1760,13 +1771,23 @@ def fun_process_image(image,label):
     
     return image,label
 
-def fun_load_model(name):
+def fun_load_model(name, opt):
 
-    model_original = tf.keras.models.load_model(name)
-    model_original.compile(
-    optimizer=tf.keras.optimizers.Adam(0.001),
-    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-    metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],)
+    custom_objects = {'DynamicPolyReLU_D2':DynamicPolyReLU_D2, 'DynamicPolyReLU_D3':DynamicPolyReLU_D3, 'DynamicPolyReLU_D4':DynamicPolyReLU_D4, 'Square':Square, 'CustomModel': CustomModel}
+
+    model_original = tf.keras.models.load_model(name, custom_objects = custom_objects)
+
+    
+
+    optimizer = tf.keras.optimizers.Adam(0.001)
+    if opt['problem'] == 'classification':
+        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        metrics = [tf.keras.metrics.SparseCategoricalAccuracy()]
+    else:
+        loss =  'mse'
+        metrics = [tf.keras.metrics.MeanSquaredError(name='mean_squared_error', dtype=None)]
+
+    model_original.compile(optimizer = optimizer, loss = loss, metrics = metrics)
     
     return model_original
 
@@ -1776,17 +1797,34 @@ def fun_save_model(model, filepath):
     overwrite=True,
     include_optimizer=False)
 
-def fun_model_example(name = 'mnist'):
+def fun_model_example(opt, name = 'mnist'):
     
     data_name = name.split('-')[-1]
+
+    optimizer =  tf.keras.optimizers.Adam(0.001)
+
+    if opt['problem'] == 'classification':
+
+        loss    = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        metrics = [tf.keras.metrics.SparseCategoricalAccuracy()]
+        monitor = 'val_sparse_categorical_accuracy'
+
+    else:
+
+         loss    = 'mse'
+         metrics = [tf.keras.metrics.MeanSquaredError(name='mean_squared_error', dtype=None)]
+         monitor = 'val_loss'
+
+
+
 
     datain_tr, dataou_tr, datain_te, dataou_te = fun_data(name = data_name, calibrate = True)
     out_size = np.unique(dataou_tr).shape[0]
 
     x = [tf.keras.Input(datain_tr.shape[1:])]
 
-    loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-    metrics = [tf.keras.metrics.SparseCategoricalAccuracy()]
+    # loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    # metrics = [tf.keras.metrics.SparseCategoricalAccuracy()]
 
     if name == 'mnist':
 
@@ -1918,21 +1956,24 @@ def fun_model_example(name = 'mnist'):
 
     elif name == 'hepex-ae63-mnist':
 
-        epochs = 2
+        epochs = 1
+
+        ins = np.prod(datain_tr.shape[1:])
 
         x.append(tf.keras.layers.Flatten() (x[-1]))
-        x.append(tf.keras.layers.Dense(64) (x[-1]))
-        x.append(tf.keras.layers.ReLU()  (x[-1]))  
-        x.append(tf.keras.layers.Dense(32) (x[-1]))
-        x.append(tf.keras.layers.ReLU()  (x[-1]))               
-        x.append(tf.keras.layers.Dense(64) (x[-1]))
-        x.append(tf.keras.layers.ReLU()  (x[-1]))
-        x.append(tf.keras.layers.Dense(np.prod(datain_tr.shape[1:])) (x[-1]))
-        x.append(tf.keras.layers.ReLU()  (x[-1]))
+        x.append(Square()  (x[-1]))
+        x.append(tf.keras.layers.Dense(64, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(ins,64) / 100)) (x[-1]))
+        x.append(Square()  (x[-1]))  
+        x.append(tf.keras.layers.Dense(32, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(64,32) / 100)) (x[-1]))
+        x.append(Square()  (x[-1]))               
+        x.append(tf.keras.layers.Dense(64, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(32,64) / 100)) (x[-1]))
+        x.append(Square()  (x[-1]))
+        x.append(tf.keras.layers.Dense(ins, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(64,ins) / 100)) (x[-1]))
+        x.append(Square()  (x[-1]))
         x.append(tf.keras.layers.Reshape(datain_tr.shape[1:]) (x[-1]) )      
 
-        loss = 'mse'
-        metrics = ['val_loss']
+        # loss = 'mse'
+        # metrics = [tf.keras.metrics.MeanSquaredError(name='mean_squared_error', dtype=None)]
 
 
 
@@ -1957,14 +1998,14 @@ def fun_model_example(name = 'mnist'):
     #     loss      = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
     #     metrics   = [tf.keras.metrics.SparseCategoricalAccuracy()])
 
-    model.compile(optimizer = tf.keras.optimizers.Adam(0.001), 
+    model.compile(optimizer = optimizer, 
         loss      = loss,
         metrics = metrics)
 
     model.summary()
 
     callback = tf.keras.callbacks.EarlyStopping(
-    monitor='val_sparse_categorical_accuracy',
+    monitor= monitor,
     patience=25,
     restore_best_weights=True)
 
@@ -1997,7 +2038,7 @@ def fun_model_example(name = 'mnist'):
         callbacks = [reduce_lr, callback]    
     )
 
-    model.save('model.h5')
+    model.save("model_original_{}.h5".format(name))
 
 def fun_imshow(data, name, num_h = 10, num_v = 10):
 
