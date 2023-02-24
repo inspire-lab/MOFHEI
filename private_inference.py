@@ -25,6 +25,9 @@ crypto_configs = {
     },
     'cifar10': {  # depth esititmate: 25
         'poly_modulus_degree': 32768,
+        'coeff_modulus':
+          [40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40],
+        'scale': 30.0,
         'multiplicative_depth': 25
     },
     'electric_grid_stability': {  # depth esititmate: 10
@@ -112,25 +115,39 @@ if verbose:
     backend.set_log_level(shark.INFO)
 
 # create context and keys
+start = time.time()
+sys.stdout.write('Creating context...')
 context = backend.createContext(scheme='ckks', **crypto_configs[data_set])
+print(' done. {:.2f}seconds'.format(time.time()-start))
+
+start = time.time()
+sys.stdout.write('Generating keys...')
 context.create_keys()
+print(' done. {:.2f}seconds'.format(time.time()-start))
 
 # extract and encrypt a batch of data
 n_slots = context.n_slots
 print('running with a batchsize of:', n_slots)
 x_in = x_test[:n_slots]
+start = time.time()
+sys.stdout.write('Encrypting data...')
 ctxt = context.encrypt(x_in, name='x', dtype=float, layout='batch')
+print(' done. {:.2f}seconds'.format(time.time()-start))
 
 # run encrypted computation
 enc_model = shark.EncryptedExecution(model_fn=create_model,
                                      context=context,
                                      clear_memory=args.clear_memory)
 start = time.time()
+sys.stdout.write('Running private inference... ')
 result_ctxt = enc_model(ctxt)
 end = time.time()
 print('private inference took: ', end - start, 'seconds')
 # decrypt data
+start = time.time()
+sys.stdout.write('Decrypting data...', end='')
 y_pi = context.decrypt_double(result_ctxt[0])
+print(' done. {:.2f}seconds'.format(time.time()-start))
 print(y_pi.shape, y_test.shape)
 
 # bring the output data into the the correct form. we assume that this
@@ -143,7 +160,10 @@ if len(y_test.shape) > 1:
 
 # run on plain data for comparison
 model = create_model()
+start = time.time()
+sys.stdout.write('Running plain model...')
 y_plain = model(x_in)
+print(' done. {:.2f}seconds'.format(time.time()-start))
 
 # compute plain and encyrpted accuracy
 acc_plain = np.sum(
