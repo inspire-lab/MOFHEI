@@ -29,6 +29,8 @@ crypto_configs = {
     },
     'electric_grid_stability': {  # depth esititmate: 10
         'poly_modulus_degree': 16384,
+        'coeff_modulus': [40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40],
+        'scale': 30.0,
         'multiplicative_depth': 10
     }
 }
@@ -131,6 +133,14 @@ print('private inference took: ', end - start, 'seconds')
 y_pi = context.decrypt_double(result_ctxt[0])
 print(y_pi.shape, y_test.shape)
 
+# bring the output data into the the correct form. we assume that this
+# calssifaciotn and y contains labels
+if len(y_test.shape) > 1:
+  if y_test.shape[1] > 1:
+    y_test = np.argmax(y_test, axis=1)
+  else:
+    y_test = y_test.reshape(-1)
+
 # run on plain data for comparison
 model = create_model()
 y_plain = model(x_in)
@@ -141,3 +151,7 @@ acc_plain = np.sum(
 acc_pi = np.sum(np.argmax(y_pi, axis=1) == y_test[:n_slots]) / len(y_pi)
 
 print(f'encrypted accuracy {acc_pi} plain accuracy {acc_plain}')
+error = np.sum(
+    np.argmax(y_plain, axis=1) != np.argmax(y_pi, axis=1)) / len(y_pi)
+print(f'error introduced by encryption: {error}')
+
