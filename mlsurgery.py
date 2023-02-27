@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing   import MinMaxScaler
+from sklearn.metrics import mean_squared_error as fun_mse
 
 warnings.filterwarnings("ignore")
 
@@ -21,6 +22,17 @@ def reshape(input, shape): # just for inputs
     x = reshape(input, shape)
     '''
     return tf.keras.layers.Reshape(shape)(input)
+
+
+# def loss(model, original):
+#   reconstruction_error = tf.reduce_mean(tf.square(tf.subtract(model(original), original)))
+#   return reconstruction_error
+
+class ReconstructionMeanSquaredError(tf.keras.losses.Loss):
+
+  def call(self, y_true, y_pred, **kwargs):
+    return tf.reduce_mean(tf.square(tf.subtract(y_pred, y_true)))
+
 
 class Square(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
@@ -1409,6 +1421,7 @@ class MLSurgery():
         model_pruning, info = MLSurgery.fun_generate_model_pruning(self, model)
         callbacks           = [MyThresholdCallback(threshold = self.model_original_msm_te, problem=self.opt['problem']), tfmot.sparsity.keras.UpdatePruningStep()]
         
+        #model_pruning.summary()
         model_pruning.fit(self.data_tr[0],self.data_tr[1], epochs = self.opt['epochs_pruning'], verbose = 0, shuffle = True, batch_size = self.opt['batch_size'], validation_data = self.data_te, callbacks = callbacks)
 
         #_, acc              = model_pruning.evaluate(self.data_te[0], self.data_te[1], verbose=0, batch_size = 32)
@@ -1597,7 +1610,9 @@ class MLSurgery():
         cond_transfer_learning = True
 
         optimizer    = self.optimizer
-        optimizer.lr = optimizer.lr * 10
+        #optimizer.lr = optimizer.lr * 10
+
+        #print(optimizer, self.loss)
         model_culled.compile(optimizer = optimizer,
                             loss       = self.loss,
                             metrics    = self.metrics)
@@ -1651,37 +1666,42 @@ class MLSurgery():
 
         MLSurgery.fun_clear()
 
-        print('Accuracy of The Original Model: {}'.format(self.model_original_msm_te))
-        print('-------------------------------------------------------------------------------------------------------------------------')
+        if self.opt['problem'] == 'classification':
+            msm_name = 'ACC'
+        else:
+            msm_name = 'MSE'
 
-        if self.opt['he_friendly_stat']:
+        print("{} of The Original Model: {}".format(msm_name, self.model_original_msm_te))
+        print("-------------------------------------------------------------------------------------------------------------------------")
+
+        if self.opt["he_friendly_stat"]:
             
-            print('Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | Start |')
+            print("Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | Start |")
 
             model, msm = MLSurgery.fun_max2ave(self, model)
 
-            print('Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | End   | Validation measurement: {}'.format(msm))
+            print("Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | End   | Validation {}: {}".format(msm_name, msm))
 
-            print('Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | Start |')
+            print("Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | Start |")
 
             model, msm = MLSurgery.fun_relu2poly(self, model)
 
-            print('Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | End   | Validation measurement: {}'.format(msm))
+            print("Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | End   | Validation {}: {}".format(msm_name, msm))
 
 
-        if self.opt['pruning_stat']:
-            print('Packing-Aware Pruning      | TF-Optimization                            | Start |')
+        if self.opt["pruning_stat"]:
+            print("Packing-Aware Pruning      | TF-Optimization                            | Start |")
 
             model, msm = MLSurgery.fun_tfmot_prune(self, model)
 
-            print('Packing-Aware Pruning      | TF-Optimization                            | End   | Validation measurement: {}'.format(msm))
+            print("Packing-Aware Pruning      | TF-Optimization                            | End   | Validation {}: {}".format(msm_name, msm))
 
-        if self.opt['culling_stat']:
-            print('Culling                    | Removing Filters and Weights               | Start |')
+        if self.opt["culling_stat"]:
+            print("Culling                    | Removing Filters and Weights               | Start |")
 
             model, msm = MLSurgery.fun_culling(self, model)
 
-            print('Culling                    | Removing Filters and Weights               | End   | Validation measurement: {}'.format(msm))
+            print("Culling                    | Removing Filters and Weights               | End   | Validation {}: {}".format(msm_name, msm))
 
         #MLSurgery.fun_plot_tiles(model)
         #MLSurgery.fun_weight_observation(model)
@@ -1811,7 +1831,7 @@ def fun_model_example(opt, name = 'mnist'):
 
     else:
 
-         loss    = 'mse'
+         loss    = 'mse' #tf.keras.losses.MeanSquaredError() # ReconstructionMeanSquaredError() #
          metrics = [tf.keras.metrics.MeanSquaredError(name='mean_squared_error', dtype=None)]
          monitor = 'val_loss'
 
@@ -1828,7 +1848,7 @@ def fun_model_example(opt, name = 'mnist'):
 
     if name == 'mnist':
 
-        epochs = 10
+        epochs = 2
 
 
         '''
@@ -1956,20 +1976,34 @@ def fun_model_example(opt, name = 'mnist'):
 
     elif name == 'hepex-ae63-mnist':
 
-        epochs = 1
+        epochs = 0
 
         ins = np.prod(datain_tr.shape[1:])
 
         x.append(tf.keras.layers.Flatten() (x[-1]))
+        #x.append(tf.keras.layers.Dense(64, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(ins,64) / 100)) (x[-1]))
+        #x.append(Square()  (x[-1]))  
+
+        x.append(tf.keras.layers.Dense(64) (x[-1]))
+        # x.append(tf.keras.layers.ReLU() (x[-1]) )
+
+        #x.append(tf.keras.layers.Dense(32, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(64,32) / 100)) (x[-1]))
+        x.append(Square()  (x[-1]))   
+        #             
+        x.append(tf.keras.layers.Dense(32) (x[-1]))
+        # x.append(tf.keras.layers.ReLU() (x[-1]) )
+
+
+        #x.append(tf.keras.layers.Dense(64, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(32,64) / 100)) (x[-1]))
         x.append(Square()  (x[-1]))
-        x.append(tf.keras.layers.Dense(64, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(ins,64) / 100)) (x[-1]))
-        x.append(Square()  (x[-1]))  
-        x.append(tf.keras.layers.Dense(32, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(64,32) / 100)) (x[-1]))
-        x.append(Square()  (x[-1]))               
-        x.append(tf.keras.layers.Dense(64, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(32,64) / 100)) (x[-1]))
+        x.append(tf.keras.layers.Dense(64) (x[-1]))
+        #x.append(tf.keras.layers.ReLU() (x[-1]) )
         x.append(Square()  (x[-1]))
-        x.append(tf.keras.layers.Dense(ins, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(64,ins) / 100)) (x[-1]))
+
+        #x.append(tf.keras.layers.Dense(ins, kernel_initializer=tf.keras.initializers.Constant(value=np.random.randn(64,ins) / 100)) (x[-1]))
+        x.append(tf.keras.layers.Dense(ins) (x[-1]))
         x.append(Square()  (x[-1]))
+        #x.append(tf.keras.activations.sigmoid(x[-1]))
         x.append(tf.keras.layers.Reshape(datain_tr.shape[1:]) (x[-1]) )      
 
         # loss = 'mse'
@@ -2009,6 +2043,8 @@ def fun_model_example(opt, name = 'mnist'):
     patience=25,
     restore_best_weights=True)
 
+    print(datain_tr.min(), dataou_tr.max())
+
     if 'hepex' in name:
 
         model.fit(
@@ -2037,6 +2073,14 @@ def fun_model_example(opt, name = 'mnist'):
         validation_freq=1,
         callbacks = [reduce_lr, callback]    
     )
+        
+    # dataes_te = model.predict(datain_te)
+
+    # mse_es = fun_mse(dataes_te.ravel(), datain_te.ravel()) #np.mean((dataes_te - datain_tr) ** 2)
+
+    # print('HERE: ', mse_es)
+
+    #dsasadf =dfsasdf
 
     model.save("model_original_{}.h5".format(name))
 

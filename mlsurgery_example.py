@@ -10,8 +10,8 @@ opt['culling_stat']                = True # set True if we want to cull the mode
 opt['he_polynomial_Degree']        = 0  #Currently supports polynomial degrees 0, 2, 3, & 4 for making a model HE-friendly
 
 # if  opt['he_polynomial_Degree'] == 0, then set transfer and finetune epochs to 1
-opt['epochs_transfer']             = 1
-opt['epochs_finetune']             = 1
+opt['epochs_transfer']             = 0
+opt['epochs_finetune']             = 0
 opt['lr_transfer']                 = 0.0001
 opt['lr_finetune']                 = 0.00001
 opt['batch_size']                  = 128
@@ -19,10 +19,10 @@ opt['patience']                    = 10
 
 
 # only if opt['he_friendly_stat' ] == True 
-opt['epochs_pruning']                 = 30
-opt['epochs_culling']                 = 20
+opt['epochs_pruning']                 = 10
+opt['epochs_culling']                 = 10
 opt['minimum_acceptable_measurement'] = 0.001 # loss in regression and accuracy in classification
-opt['target_sparsity']                = 0.72
+opt['target_sparsity']                = 0.50
 opt['begin_step']                     = 0 
 opt['frequency']                      = 100
 

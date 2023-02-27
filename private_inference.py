@@ -147,7 +147,7 @@ end = time.time()
 print('private inference took: ', end - start, 'seconds')
 # decrypt data
 start = time.time()
-sys.stdout.write('Decrypting data...', end='')
+sys.stdout.write('Decrypting data...')
 y_pi = context.decrypt_double(result_ctxt[0])
 print(' done. {:.2f}seconds'.format(time.time() - start))
 print(y_pi.shape, y_test.shape)
