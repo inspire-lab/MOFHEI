@@ -2,14 +2,66 @@ import os
 import argparse
 import datetime
 import json
+from sklearn.metrics import mean_squared_error
+
+model_configs = {
+    'electrical-stability-fcnet': {
+        'dataset': 'electrical-stability',
+        'task': 'classification'
+    },
+    'mnist-lenet': {
+        'dataset': 'mnist',
+        'task': 'classification',
+        'model_type': 'lenet'
+    },
+    'cifar10-alexnet': {
+        'dataset': 'cifar10',
+        'task': 'classification'
+    },
+    'cifar10-vgg16': {
+        'dataset': 'cifar10',
+        'task': 'classification'
+    },
+    'x-ray-vgg16': {
+        'dataset': 'x-ray',
+        'task': 'classification'
+    },
+    'mnist-hepex-ae1': {
+        'dataset': 'cifar10',
+        'task': 'regression'
+    },
+    'mnist-hepex-ae2': {
+        'dataset': 'cifar10',
+        'task': 'regression'
+    },
+    'mnist-hepex-ae3': {
+        'dataset': 'cifar10',
+        'task': 'regression'
+    },
+    'cifar10-hepex-ae1': {
+        'dataset': 'cifar10',
+        'task': 'regression'
+    },
+    'cifar10-hepex-ae2': {
+        'dataset': 'cifar10',
+        'task': 'regression'
+    },
+    'cifar10-hepex-ae3': {
+        'dataset': 'cifar10',
+        'task': 'regression'
+    }
+}
 
 # crypto configs for the different models
 crypto_configs = {
-    'mnist': {  # depth esititmate: 8
-        'poly_modulus_degree': 16384,
-        'coeff_modulus': [30, 23, 23, 23, 23, 23, 23, 23, 23, 30],
-        'scale': 23.0,
-        'multiplicative_depth': 8
+    'mnist-lenet': {  # depth esititmate: 19
+        'poly_modulus_degree': 32768,
+        'coeff_modulus': [
+            40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+            30, 30, 30, 40
+        ],
+        'scale': 30.0,
+        'multiplicative_depth': 19
     },
     'cifar10': {  # depth esititmate: 25
         'poly_modulus_degree': 32768,
@@ -20,7 +72,7 @@ crypto_configs = {
         'scale': 30.0,
         'multiplicative_depth': 25
     },
-    'electric_grid_stability': {  # depth esititmate: 10
+    'electrical-stability-fcnet': {  # depth esititmate: 10
         'poly_modulus_degree': 16384,
         'coeff_modulus': [40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40],
         'scale': 30.0,
@@ -30,11 +82,11 @@ crypto_configs = {
 
 parser = argparse.ArgumentParser(
     prog='private_inference.py',
-    description='Run private inference on a vareity of models and datasets')
+    description='Run private inference on a vareity of models and datasets.'
+    'Runs the pruned model by default. use -O to run the he-friendly'
+    'pre-pruning model')
 
-parser.add_argument('dataset',
-                    help='Name of dataset and corresponding model',
-                    choices=crypto_configs.keys())
+parser.add_argument('model', help='Name of model', choices=model_configs.keys())
 parser.add_argument('-v',
                     '--verbose',
                     action='store_true',
@@ -51,7 +103,7 @@ parser.add_argument('-i',
 parser.add_argument('-O',
                     '--original',
                     action='store_true',
-                    help='run the orginal unpruned model instead')
+                    help='run he-friendly unpruned model instead')
 parser.add_argument('-q',
                     '--quiet',
                     action='store_true',
@@ -97,10 +149,14 @@ experimental.add_argument(
 
 args = parser.parse_args()
 
+model_name = args.model
+data_set = model_configs[model_name]['dataset']
+
 # create an object that will hold all our results and configs
 result_dict = {}
+result_dict['model'] = model_name
+result_dict['dataset'] = data_set
 result_dict['config'] = vars(args)
-result_dict['dataset'] = args.dataset
 
 if args.quiet:
   # disable a bunch of logging
@@ -117,7 +173,8 @@ if args.quiet:
   # disable a bunch of logging
   tf.compat.v1.logging.set_verbosity(50)
 
-from mlsurgery import *
+from main_mlsurgery import *
+from mlsurgery import DynamicPolyReLU_D2, DynamicPolyReLU_D3, DynamicPolyReLU_D4
 import numpy as np
 
 import sys
@@ -127,14 +184,14 @@ custom_objects = {
     'DynamicPolyReLU_D2': DynamicPolyReLU_D2,
     'DynamicPolyReLU_D3': DynamicPolyReLU_D3,
     'DynamicPolyReLU_D4': DynamicPolyReLU_D4,
+    'DynamicPolyActn_D2': DynamicPolyActn_D2,
+    'DynamicPolyActn_D3': DynamicPolyActn_D3,
+    'DynamicPolyActn_D4': DynamicPolyActn_D4,
     'Square': Square,
     'CustomModel': CustomModel
 }
 
-data_set = args.dataset
 verbose = args.verbose or args.extra_verbose
-
-_, _, x_test, y_test = fun_data(name=data_set, calibrate=True)
 
 print('creating memory callback')
 from aluminum_shark.tools.memory_logger import MemoryLogger
@@ -143,26 +200,48 @@ if args.log_memory or args.log_memory_history:
   logger = MemoryLogger(log_history=args.log_memory_history)
   logger.start()
 
+base_dir = model_name
+if args.original:
+  model_file = os.path.join(base_dir, 'hefriendly', 'model.h5')
+else:
+  model_file = os.path.join(base_dir, 'pruned', 'model.h5')
+result_dict['config']['model_file'] = model_file
+
 
 # load model
 def create_model():
-  if (args.original):
-    model = tf.keras.models.load_model(f'model_original_{data_set}.h5',
-                                       custom_objects=custom_objects)
-  else:
-    model = tf.keras.models.load_model(f'model_culled_{data_set}.h5',
-                                       custom_objects=custom_objects)
+  model = tf.keras.models.load_model(model_file, custom_objects=custom_objects)
   if verbose or args.model_info:
     model.summary()
   return model
 
 
-result_dict['culled'] = not args.original
+result_dict['pruned'] = not args.original
 
 # display model summary and exit
 if args.model_info:
   create_model()
   exit(0)
+
+# load data
+data_file = os.path.join(base_dir, 'data', 'data.npy')
+
+if data_set == 'mnist':
+  data = fun_loader_mnist(
+      data_file, model_type=model_configs[model_name].get('model_type'))
+elif data_set == 'cifar10':
+  data = fun_loader_cifar10(data_file)
+elif data_set == 'electrical-stability':
+  data = fun_loader_electrical_stability(data_file)
+else:
+  raise RuntimeError('unkown dataset ' + data_set)
+
+result_dict['config']['data_file'] = data_file
+x_test = data['datain_te']
+if model_configs[model_name]['task'] == 'classification':
+  y_test = data['dataou_te']
+else:
+  y_test = data['datain_te']
 
 # enable logging
 if verbose:
@@ -187,8 +266,8 @@ if args.count_operations:
 # create context and keys
 start = time.time()
 sys.stdout.write('Creating context...')
-result_dict['crypt_config'] = crypto_configs[data_set]
-context = backend.createContext(scheme='ckks', **crypto_configs[data_set])
+result_dict['crypt_config'] = crypto_configs[model_name]
+context = backend.createContext(scheme='ckks', **crypto_configs[model_name])
 end = time.time()
 result_dict['context_creation'] = end - start
 print(' done. {:.2f}seconds'.format(end - start))
@@ -273,18 +352,33 @@ end = time.time()
 result_dict['plain_inference'] = end - start
 print(' done. {:.2f}seconds'.format(end - start))
 
-# compute plain and encyrpted accuracy
-acc_plain = np.sum(
-    np.argmax(y_plain, axis=1) == y_test[:n_slots]) / len(y_plain)
-acc_pi = np.sum(np.argmax(y_pi, axis=1) == y_test[:n_slots]) / len(y_pi)
-result_dict['plain_performance'] = acc_plain
-result_dict['encrypted_performance'] = acc_pi
+if model_configs[model_name]['problem'] == 'classification':
+  # compute plain and encyrpted accuracy
+  acc_plain = np.sum(
+      np.argmax(y_plain, axis=1) == y_test[:n_slots]) / len(y_plain)
+  acc_pi = np.sum(np.argmax(y_pi, axis=1) == y_test[:n_slots]) / len(y_pi)
+  result_dict['plain_performance'] = acc_plain
+  result_dict['encrypted_performance'] = acc_pi
+  result_dict['metric'] = 'accuracy'
 
-print(f'encrypted accuracy {acc_pi} plain accuracy {acc_plain}')
-error = np.sum(
-    np.argmax(y_plain, axis=1) != np.argmax(y_pi, axis=1)) / len(y_pi)
-print(f'error introduced by encryption: {error}')
-result_dict['encyrption_error'] = error
+  print(f'encrypted accuracy {acc_pi} plain accuracy {acc_plain}')
+  error = np.sum(
+      np.argmax(y_plain, axis=1) != np.argmax(y_pi, axis=1)) / len(y_pi)
+  print(f'error introduced by encryption: {error}')
+  result_dict['encyrption_error'] = error
+else:
+  y_batch = y_test[:n_slots]
+  mse_plain = mean_squared_error(y_batch, y_plain)
+  mse_pi = mean_squared_error(y_batch, y_pi)
+  result_dict['plain_performance'] = mse_plain
+  result_dict['encrypted_performance'] = mse_pi
+  result_dict['metric'] = 'mse'
+
+  print(f'encrypted mse {mse_pi} plain mse {mse_plain}')
+
+  error = mean_squared_error(y_plain, y_pi)
+  print(f'error introduced by encryption: {error}')
+  result_dict['encyrption_error'] = error
 
 monitor = enc_model.monitor
 history = monitor.compile_history(clear_no_ciphertext_ops=True)
@@ -292,10 +386,10 @@ result_dict.update(history)
 
 # format it nicely and write it to file:
 now = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-model_type = 'oringinal' if args.original else 'culled'
 
+model_type = 'hefriendly' if args.original else 'pruned'
 dict_string = json.dumps(result_dict, indent=2)
 
-file_name = data_set + '_' + model_type + '_result_' + now + '.json'
+file_name = os.path.join(base_dir, 'results', model_type + '_' + now + '.json')
 with open(file_name, 'w') as f:
   f.write(dict_string)
