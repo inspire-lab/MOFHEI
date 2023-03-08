@@ -41,9 +41,9 @@ class Square(tf.keras.layers.Layer):
     def call(self, inputs):
         return tf.square(inputs)
 
-class DynamicPolyReLU_D2(tf.keras.layers.Layer):
+class DynamicPolyActn_D2(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
-        super(DynamicPolyReLU_D2, self).__init__()
+        super(DynamicPolyActn_D2, self).__init__()
 
     def build(self, input_shape):
         initializer = tf.constant_initializer(value=0.00001)
@@ -52,9 +52,9 @@ class DynamicPolyReLU_D2(tf.keras.layers.Layer):
     def call(self, inputs):
         return self.kernel[2] * tf.square(inputs) + self.kernel[1] * inputs + self.kernel[0]
 
-class DynamicPolyReLU_D3(tf.keras.layers.Layer):
+class DynamicPolyActn_D3(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
-        super(DynamicPolyReLU_D3, self).__init__()
+        super(DynamicPolyActn_D3, self).__init__()
 
     def build(self, input_shape):
         initializer = tf.constant_initializer(value=0.00001)
@@ -63,9 +63,9 @@ class DynamicPolyReLU_D3(tf.keras.layers.Layer):
     def call(self, inputs):
         return self.kernel[3]*tf.math.pow(inputs, 3) +  self.kernel[2] * tf.square(inputs) + self.kernel[1] * inputs + self.kernel[0]
 
-class DynamicPolyReLU_D4(tf.keras.layers.Layer):
+class DynamicPolyActn_D4(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
-        super(DynamicPolyReLU_D4, self).__init__()
+        super(DynamicPolyActn_D4, self).__init__()
 
     def build(self, input_shape):
         initializer = tf.constant_initializer(value=0.00001)
@@ -74,15 +74,15 @@ class DynamicPolyReLU_D4(tf.keras.layers.Layer):
     def call(self, inputs):
         return self.kernel[4]*tf.math.pow(inputs, 4) + self.kernel[3]*tf.math.pow(inputs, 3) +  self.kernel[2] * tf.square(inputs) + self.kernel[1] * inputs + self.kernel[0]
 
-class PDynamicPolyReLU_D2(DynamicPolyReLU_D2, tfmot.sparsity.keras.PrunableLayer):
+class PDynamicPolyActn_D2(DynamicPolyActn_D2, tfmot.sparsity.keras.PrunableLayer):
     def get_prunable_weights(self):
         return [self.kernel]
 
-class PDynamicPolyReLU_D3(DynamicPolyReLU_D3, tfmot.sparsity.keras.PrunableLayer):
+class PDynamicPolyActn_D3(DynamicPolyActn_D3, tfmot.sparsity.keras.PrunableLayer):
     def get_prunable_weights(self):
         return [self.kernel]
 
-class PDynamicPolyReLU_D4(DynamicPolyReLU_D3, tfmot.sparsity.keras.PrunableLayer):
+class PDynamicPolyActn_D4(DynamicPolyActn_D3, tfmot.sparsity.keras.PrunableLayer):
     def get_prunable_weights(self):
         return [self.kernel]
 
@@ -154,6 +154,10 @@ class Features_4D_To_2D(tf.keras.layers.Layer):
         
         batch_size, width, height, depth = inputs.shape
 
+        # print(inputs)
+
+        # print( width, height, depth)
+
         # num_strides_horizontal  = int(tf.math.ceil((width-self.kernel_size[0])/self.strides[0]) + 1)
         # num_strides_vertical    = int(tf.math.ceil((hight-self.kernel_size[1])/self.strides[1]) + 1)
 
@@ -192,10 +196,14 @@ class Features_4D_To_2D(tf.keras.layers.Layer):
 
         ind            = tf.repeat(tf.expand_dims(tf.cast(tf.linspace(0,self.kernel_size[0]- 1,self.kernel_size[0]), dtype = tf.int32), axis = 0), int(num_strides_horizontal), axis = 0)
         val_sum        = tf.transpose(tf.repeat(tf.expand_dims(ind_horizontal_start, axis = 0), self.kernel_size[0], axis = 0))
+        val_sum        = fun_tf_expand(val_sum)
+
         ind_horizontal = tf.reshape(ind + val_sum, (int(val_sum.shape[0] * val_sum.shape[1]),))
 
         ind            = tf.repeat(tf.expand_dims(tf.cast(tf.linspace(0,self.kernel_size[1]- 1,self.kernel_size[1]), dtype = tf.int32), axis = 0), int(num_strides_vertical), axis = 0)
         val_sum        = tf.transpose(tf.repeat(tf.expand_dims(ind_vertical_start, axis = 0), self.kernel_size[1], axis = 0))
+        val_sum        = fun_tf_expand(val_sum)
+
         ind_vertical   = tf.reshape(ind + val_sum, (int(val_sum.shape[0] * val_sum.shape[1]),))
 
         input_reshaped = tf.gather(tf.gather(inputs, ind_horizontal, axis = 1), ind_vertical, axis = 2)
@@ -285,6 +293,12 @@ class CustomModel(tf.keras.Model):
         # Return a dict mapping metric names to current value
         return {m.name: m.result() for m in self.metrics}
 
+@tf.function
+def fun_tf_expand(val):
+    if len(val.shape) == 1:
+        val = tf.expand_dims(val, axis = 0)
+
+    return val
 
 '''
 $$$$$$$$$$$$$$$$$$$$$
@@ -312,11 +326,32 @@ class MLSurgery():
         else:
             _ = os.system("clear")
 
-    def fun_model_saving(self, name):
-        self.opt['models'][name].save(self.opt['files'][name], 
-                                      overwrite         = True, 
-                                      include_optimizer = False)
+    def fun_model_saving(self, name, subname = 0):
+        if subname == 0:
+            self.opt['models'][name].save(self.opt['files'][name], 
+                                        overwrite         = True, 
+                                        include_optimizer = False)
+        else:
+            # case of pool and actn
+            self.opt['models'][name].save(self.opt['files'][subname], 
+                                        overwrite         = True, 
+                                        include_optimizer = False)
+
+    def fun_model_loading(self, name, subname = 0):
+        if name == 0:
+            self.opt['models'][name] = tf.keras.models.load_model(self.opt['files'][name], 
+                                                                  custom_objects = self.opt['config']['custom_objects'] )
         
+        else:
+            self.opt['models'][name] = tf.keras.models.load_model(self.opt['files'][subname], 
+                                                                  custom_objects = self.opt['config']['custom_objects'] )
+
+        self.opt['models'][name].compile(optimizer = self.opt['config']['optimizer']['original'], 
+                                         loss      = self.opt['config']['loss'], 
+                                         metrics   = self.opt['config']['metrics'])
+        
+        self.temp_msm = MLSurgery.fun_model_testing(self, name = 'hefriendly') 
+
     def fun_model_stack(df):
         '''
         Stack a data frame of model layers into a list of tesnsor x
@@ -362,7 +397,7 @@ class MLSurgery():
         df['output_shape'] = []
         df['trainable']    = []
         df['num_param']    = []
-        df['relu']         = []
+        df['actn']         = []
         df['maxpool']      = []
 
         c = 0
@@ -387,9 +422,9 @@ class MLSurgery():
             df['num_param'].append(int(sum([tf.reduce_prod(weight.shape) for weight in layer.weights if weight.trainable])))
 
             if ('relu' in df['type'][-1].lower()) or ('activation' in df['type'][-1].lower()):
-                df['relu'].append(True)
+                df['actn'].append(True)
             else:
-                df['relu'].append(False)
+                df['actn'].append(False)
 
             if ('max' in df['type'][-1].lower()):
                 df['maxpool'].append(True)
@@ -479,7 +514,7 @@ class MLSurgery():
             self.opt['models']['hefriendly'].fit(self.opt['data']['datain_tr'], 
                                                  self.opt['data']['dataou_tr'], 
                                                  epochs          = self.opt['config']['epochs']['transfer'], 
-                                                 verbose         = 0, 
+                                                 verbose         = self.opt['verbose']['hefriendly']['pool'], 
                                                  shuffle         = True, 
                                                  batch_size      = self.opt['batch_size'], 
                                                  validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
@@ -498,7 +533,7 @@ class MLSurgery():
             self.opt['models']['hefriendly'].fit(self.opt['data']['datain_tr'], 
                                                  self.opt['data']['dataou_tr'], 
                                                  epochs          = self.opt['config']['epochs']['finetune'], 
-                                                 verbose         = 0, 
+                                                 verbose         = self.opt['verbose']['hefriendly']['pool'], 
                                                  shuffle         = True, 
                                                  batch_size      = self.opt['batch_size'], 
                                                  validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
@@ -511,7 +546,7 @@ class MLSurgery():
 
     def fun_relu2poly(self):
         '''
-        Trun every relu layer into average pooling layer (after max2ave)
+        DEPRECIATED | Trun every relu layer into average pooling layer (after max2ave)
         '''
 
         self.opt['models']['hefriendly'] = MLSurgery.fun_model_clone(self, name = 'hefriendly')
@@ -535,13 +570,13 @@ class MLSurgery():
                 df_clone['layer'][ind] = Square()
             
             elif self.opt['polynomial_activation_degree'] == 2:
-                df_clone['layer'][ind] =  DynamicPolyReLU_D2()
+                df_clone['layer'][ind] =  DynamicPolyActn_D2()
 
             elif self.opt['polynomial_activation_degree'] == 3:
-                df_clone['layer'][ind] =  DynamicPolyReLU_D3()
+                df_clone['layer'][ind] =  DynamicPolyActn_D3()
 
             elif self.opt['polynomial_activation_degree'] == 4:
-                df_clone['layer'][ind] =  DynamicPolyReLU_D4()
+                df_clone['layer'][ind] =  DynamicPolyActn_D4()
             
             else:
                 assert True, "MLSurgery ERROR: Only polynomials of degree 0, 2, 3, & 4 are supported"
@@ -586,6 +621,100 @@ class MLSurgery():
                                                  batch_size      = self.opt['batch_size'], 
                                                  validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
                                                  callbacks       = self.opt['config']['callbacks'])
+
+            
+        msm_case = MLSurgery.fun_model_testing(self, name = 'hefriendly')   
+
+        return msm_case
+    
+    def fun_activation2poly(self):
+        '''
+        Trun every activation layer into average pooling layer (after max2ave)
+        '''
+
+        self.opt['models']['hefriendly'] = MLSurgery.fun_model_clone(self, name = 'hefriendly')
+        df_clone        = MLSurgery.fun_model_info(self, name = 'hefriendly')
+
+        # find indeices of all activation layers
+        ind_actn        = np.where(df_clone['actn'].values)[0]
+
+        # we start from the latest max pooling layer and move towards the first one
+        ind_actn        = ind_actn[::-1]
+
+        for ind in ind_actn:
+            df_clone = MLSurgery.fun_model_info(self, name = 'hefriendly')
+
+            for i0 in range(len(df_clone)):
+                df_clone['layer'][i0].trainable = False
+                df_clone['trainable']           = False
+
+
+            if self.opt['polynomial_activation_degree'] == 0:
+                df_clone['layer'][ind] = Square()
+            
+            elif self.opt['polynomial_activation_degree'] == 2:
+                df_clone['layer'][ind] =  DynamicPolyActn_D2()
+
+            elif self.opt['polynomial_activation_degree'] == 3:
+                df_clone['layer'][ind] =  DynamicPolyActn_D3()
+
+            elif self.opt['polynomial_activation_degree'] == 4:
+                df_clone['layer'][ind] =  DynamicPolyActn_D4()
+            
+            else:
+                assert True, "MLSurgery ERROR: Only polynomials of degree 0, 2, 3, & 4 are supported"
+
+            df_clone['type'][ind]      = 'PolyActn'
+            df_clone['trainable'][ind] = True
+            df_clone['actn'][ind]      = False
+
+
+            # here we only unfreez layers after ind
+            for i0 in range(ind,len(df_clone)):
+                df_clone['layer'][i0].trainable = True
+                df_clone['trainable'][i0]       = True
+            
+            x           = MLSurgery.fun_model_stack(df_clone)
+            self.opt['models']['hefriendly'] = MLSurgery.fun_model_create(self, 'transfer', x)
+
+            print('transfer', ind, ind_actn)
+
+            self.opt = fun_config(self.opt)
+
+            print(self.opt['config']['callbacks'])
+
+            self.opt['models']['hefriendly'].fit(self.opt['data']['datain_tr'], 
+                                                 self.opt['data']['dataou_tr'], 
+                                                 epochs          = self.opt['config']['epochs']['transfer'], 
+                                                 verbose         = self.opt['verbose']['hefriendly']['actn'], 
+                                                 shuffle         = True, 
+                                                 batch_size      = self.opt['batch_size'], 
+                                                 validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
+                                                 callbacks       = self.opt['config']['callbacks'][1:2])
+            
+            # unfreez all
+            for layer in self.opt['models']['hefriendly'].layers:
+                layer.trainable = True
+
+            # one round of fine-tuning
+            self.opt['models']['hefriendly'].compile(optimizer = self.opt['config']['optimizer']['finetune'], 
+                                                     loss      = self.opt['config']['loss'], 
+                                                     metrics   = self.opt['config']['metrics'])
+            
+            #model_clone.compile(optimizer = self.optimizer, loss = self.loss)
+            print('finetune', ind, ind_actn)
+
+            self.opt = fun_config(self.opt)
+            self.opt['models']['hefriendly'].fit(self.opt['data']['datain_tr'], 
+                                                 self.opt['data']['dataou_tr'], 
+                                                 epochs          = self.opt['config']['epochs']['finetune'], 
+                                                 verbose         = self.opt['verbose']['hefriendly']['actn'], 
+                                                 shuffle         = True, 
+                                                 batch_size      = self.opt['batch_size'], 
+                                                 validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
+                                                 callbacks       = self.opt['config']['callbacks'])
+            
+            self.opt['models']['hefriendly'] = MLSurgery.fun_model_clone(self, 'hefriendly')
 
             
         msm_case = MLSurgery.fun_model_testing(self, name = 'hefriendly')   
@@ -805,8 +934,9 @@ class MLSurgery():
         '''
         model_plugbacked = fun_generate_model_plugbacked(self, name, info)
         '''
+        #self.opt['models']['pruned'].summary()
 
-        self.opt['models']['pruned'] = MLSurgery.fun_model_clone(self, 'pruned')
+        #self.opt['models']['pruned'] = MLSurgery.fun_model_clone(self, 'pruned')
         
         keys        = list(info.keys())
 
@@ -878,7 +1008,7 @@ class MLSurgery():
         self.opt['models']['pruned'].fit(self.opt['data']['datain_tr'], 
                                          self.opt['data']['dataou_tr'], 
                                          epochs          = self.opt['config']['epochs']['pruned'], 
-                                         verbose         = 0, 
+                                         verbose         = self.opt['verbose']['pruned']['pruning'], 
                                          shuffle         = True, 
                                          batch_size      = self.opt['batch_size'], 
                                          validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
@@ -1064,7 +1194,7 @@ class MLSurgery():
         self.opt['models']['pruned'].fit(self.opt['data']['datain_tr'], 
                                          self.opt['data']['dataou_tr'], 
                                          epochs          = self.opt['config']['epochs']['pruned'], 
-                                         verbose         = 0, 
+                                         verbose         = self.opt['verbose']['pruned']['culling'], 
                                          shuffle         = True, 
                                          batch_size      = self.opt['batch_size'], 
                                          validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
@@ -1083,7 +1213,7 @@ class MLSurgery():
         self.opt['models']['pruned'].fit(self.opt['data']['datain_tr'], 
                                          self.opt['data']['dataou_tr'], 
                                          epochs          = self.opt['config']['epochs']['pruned'], 
-                                         verbose         = 0, 
+                                         verbose         = self.opt['verbose']['pruned']['culling'], 
                                          shuffle         = True, 
                                          batch_size      = self.opt['batch_size'], 
                                          validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
@@ -1102,20 +1232,35 @@ class MLSurgery():
         else:
             msm_name = 'MSE'
 
-        print("{} of The Original Model Testing Accuracy: {}".format(msm_name, self.opt['results']['original']['te']))
+        print("{} of The Original Model for Testing Data: {}".format(msm_name, self.opt['results']['original']['te']))
         print("-------------------------------------------------------------------------------------------------------------------------")
 
         if self.opt['hefriendly_stat']:
             
             print("Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | Start |")
 
-            msm = MLSurgery.fun_max2ave(self)
+            if self.opt['skip']['pool']:
+                MLSurgery.fun_model_loading(self, name = 'hefriendly', subname = 'pool')
+                msm = self.temp_msm
+            else:
+                msm = MLSurgery.fun_max2ave(self)
+                MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'pool')
 
             print("Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | End   | Testing {}: {}".format(msm_name, msm))
 
             print("Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | Start |")
 
-            msm = MLSurgery.fun_relu2poly(self)
+
+            if self.opt['skip']['actn']:
+                MLSurgery.fun_model_loading(self, name = 'hefriendly', subname = 'actn')
+                msm = self.temp_msm
+            else:
+                msm = MLSurgery.fun_activation2poly(self)
+                MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'actn')
+
+
+            msm = MLSurgery.fun_activation2poly(self)
+            MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'actn')
 
             print("Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | End   | Testing {}: {}".format(msm_name, msm))
 
@@ -1242,18 +1387,31 @@ def fun_nonimage_callibration(datain_tr,
 -DATA
 '''
 
-def fun_data_mnist(file_path, validation_split = 0.05):
-    (datain_tr, dataou_tr), (datain_te, dataou_te) = tf.keras.datasets.mnist.load_data()
-    datain_tr, datain_vl, dataou_tr, dataou_vl = train_test_split(datain_tr, 
-                                                                  dataou_tr, 
-                                                                  test_size    = validation_split,
-                                                                  random_state = np.random.randint(1000))
+def fun_input_padding(data, 
+                      pad_values = [0,0], 
+                      pad_size   = [2,2]):
     
-    datain_tr, datain_vl, datain_te = fun_image_calibration(datain_tr, 
-                                                            datain_vl,
-                                                            datain_te,
-                                                            cond = False)
-    
+    data['datain_tr'] = tf.pad(data['datain_tr'], [pad_values, pad_size, pad_size])
+    data['datain_vl'] = tf.pad(data['datain_vl'], [pad_values, pad_size, pad_size])
+    data['datain_te'] = tf.pad(data['datain_te'], [pad_values, pad_size, pad_size])
+
+    return data
+
+def fun_image_dimension_control(data):
+    if len(data['datain_tr'].shape) == 3:
+        data['datain_tr'] = np.expand_dims(data['datain_tr'], axis = 3)
+        data['datain_vl'] = np.expand_dims(data['datain_vl'], axis = 3)
+        data['datain_te'] = np.expand_dims(data['datain_te'], axis = 3)
+
+    return data
+
+def fun_save_data(file_path,
+                  datain_tr, 
+                  dataou_tr, 
+                  datain_vl, 
+                  dataou_vl, 
+                  datain_te, 
+                  dataou_te):
     data = {}
     data['datain_tr'] = datain_tr
     data['dataou_tr'] = dataou_tr
@@ -1263,6 +1421,41 @@ def fun_data_mnist(file_path, validation_split = 0.05):
     data['dataou_te'] = dataou_te
 
     np.save(file_path, data)
+
+def fun_data_mnist(file_path, validation_split = 0.05):
+    (datain_tr, dataou_tr), (datain_te, dataou_te) = tf.keras.datasets.mnist.load_data()
+    datain_tr, datain_vl, dataou_tr, dataou_vl = train_test_split(datain_tr, 
+                                                                  dataou_tr, 
+                                                                  test_size    = validation_split,
+                                                                  random_state = np.random.randint(1000))
+    
+    # save a .npy version of the original no-calibrated data for offline runs
+    fun_save_data(file_path,
+                  datain_tr, 
+                  dataou_tr, 
+                  datain_vl, 
+                  dataou_vl, 
+                  datain_te, 
+                  dataou_te)
+    
+    data = np.load(file_path, allow_pickle=True).item()
+    
+    datain_tr, datain_vl, datain_te = fun_image_calibration(datain_tr, 
+                                                            datain_vl,
+                                                            datain_te,
+                                                            cond = False)
+    
+    
+
+    data['datain_tr'] = datain_tr
+    data['datain_vl'] = datain_vl
+    data['datain_te'] = datain_te
+
+    # LeNet receives 32 by 32 inputs
+    data  = fun_input_padding(data)
+
+    # expand image dimensions in necessary
+    data  = fun_image_dimension_control(data)
 
     return data
     
@@ -1273,20 +1466,27 @@ def fun_data_cifar10(file_path, validation_split = 0.05):
                                                                   test_size    = validation_split,
                                                                   random_state = np.random.randint(1000))
     
+    # save a .npy version of the original no-calibrated data for offline runs
+    fun_save_data(file_path,
+                  datain_tr, 
+                  dataou_tr, 
+                  datain_vl, 
+                  dataou_vl, 
+                  datain_te, 
+                  dataou_te)
+    
+    data = np.load(file_path, allow_pickle=True).item()
+    
     datain_tr, datain_vl, datain_te = fun_image_calibration(datain_tr, 
                                                             datain_vl,
                                                             datain_te,
                                                             cond = False)
-    
-    data = {}
-    data['datain_tr'] = datain_tr
-    data['dataou_tr'] = dataou_tr
-    data['datain_vl'] = datain_vl
-    data['dataou_vl'] = dataou_vl
-    data['datain_te'] = datain_te
-    data['dataou_te'] = dataou_te
 
-    np.save(file_path, data)
+    data['datain_tr'] = datain_tr
+    data['datain_vl'] = datain_vl
+    data['datain_te'] = datain_te
+
+    data             = fun_image_dimension_control(data)
 
     return data
 
@@ -1338,6 +1538,58 @@ def fun_data_autoencoder(data):
 
     return data
 
+def fun_loader_cifar10(file_path):
+
+    data = np.load(file_path, allow_pickle=True).item()
+    
+    datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
+                                                            data['datain_vl'],
+                                                            data['datain_te'],
+                                                            cond = False)
+
+    data['datain_tr'] = datain_tr
+    data['datain_vl'] = datain_vl
+    data['datain_te'] = datain_te
+
+    data             = fun_image_dimension_control(data)
+
+    return data
+
+def fun_loader_mnist(file_path):
+    data = np.load(file_path, allow_pickle=True).item()
+    
+    datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
+                                                            data['datain_vl'],
+                                                            data['datain_te'],
+                                                            cond = False)
+
+    data['datain_tr'] = datain_tr
+    data['datain_vl'] = datain_vl
+    data['datain_te'] = datain_te
+
+    # LeNet receives 32 by 32 inputs
+    data  = fun_input_padding(data)
+
+    data             = fun_image_dimension_control(data)
+    
+
+    return data
+
+def fun_loader_electrical_stability(file_path):
+
+    data = np.load(file_path, allow_pickle=True).item()
+
+    datain_tr, datain_vl, datain_te = fun_nonimage_callibration(data['datain_tr'], 
+                                                                data['datain_vl'],
+                                                                data['datain_te'],
+                                                                cond = False)
+
+    data['datain_tr'] = datain_tr
+    data['datain_vl'] = datain_vl
+    data['datain_te'] = datain_te
+
+    return data
+
 
 '''
 -CONFIG
@@ -1373,9 +1625,9 @@ def fun_regression_config(args):
     config['callbacks']                        = [callback_patience, callback_lr]
     config['callbacks_tfmot']                  = [callback_patience, callback_lr, tfmot.sparsity.keras.UpdatePruningStep()]
     
-    config['custom_objects']                   = {'DynamicPolyReLU_D2':DynamicPolyReLU_D2, 
-                                                  'DynamicPolyReLU_D3':DynamicPolyReLU_D3, 
-                                                  'DynamicPolyReLU_D4':DynamicPolyReLU_D4, 
+    config['custom_objects']                   = {'DynamicPolyActn_D2':DynamicPolyActn_D2, 
+                                                  'DynamicPolyActn_D3':DynamicPolyActn_D3, 
+                                                  'DynamicPolyActn_D4':DynamicPolyActn_D4, 
                                                   'Square':Square, 
                                                   'CustomModel': CustomModel}
     
@@ -1383,7 +1635,7 @@ def fun_regression_config(args):
     config['epochs']['original'] = int(args.epochs_original)
     config['epochs']['transfer'] = int(args.epochs_transfer)      
     config['epochs']['finetune'] = int(args.epochs_finetune)  
-    config['epochs']['pruned']  = int(args.epochs_pruning)   
+    config['epochs']['pruned']   = int(args.epochs_pruning)   
 
     config['batch_size']         = int(args.batch_size) 
 
@@ -1397,7 +1649,7 @@ def fun_classification_config(args):
     config['optimizer']['hefriendly']          = tf.keras.optimizers.Adam(float(args.lr))
     config['optimizer']['transfer']            = tf.keras.optimizers.Adam(float(args.lr_transfer))
     config['optimizer']['finetune']            = tf.keras.optimizers.Adam(float(args.lr_finetune)) 
-    config['optimizer']['pruned']             = tf.keras.optimizers.Adam(float(args.lr)) 
+    config['optimizer']['pruned']              = tf.keras.optimizers.Adam(float(args.lr)) 
 
     config['loss']                             = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     config['metrics']                          = [tf.keras.metrics.SparseCategoricalAccuracy()]
@@ -1419,9 +1671,9 @@ def fun_classification_config(args):
     config['callbacks']                        = [callback_patience, callback_lr]
     config['callbacks_tfmot']                  = [callback_patience, callback_lr, tfmot.sparsity.keras.UpdatePruningStep()]
     
-    config['custom_objects']                   = {'DynamicPolyReLU_D2':DynamicPolyReLU_D2, 
-                                                  'DynamicPolyReLU_D3':DynamicPolyReLU_D3, 
-                                                  'DynamicPolyReLU_D4':DynamicPolyReLU_D4, 
+    config['custom_objects']                   = {'DynamicPolyActn_D2':DynamicPolyActn_D2, 
+                                                  'DynamicPolyActn_D3':DynamicPolyActn_D3, 
+                                                  'DynamicPolyActn_D4':DynamicPolyActn_D4, 
                                                   'Square':Square, 
                                                   'CustomModel': CustomModel}
 
@@ -1429,11 +1681,24 @@ def fun_classification_config(args):
     config['epochs']['original'] = int(args.epochs_original)
     config['epochs']['transfer'] = int(args.epochs_transfer)      
     config['epochs']['finetune'] = int(args.epochs_finetune)  
-    config['epochs']['pruned']  = int(args.epochs_pruning)   
+    config['epochs']['pruned']   = int(args.epochs_pruning)   
 
     config['batch_size']         = int(args.batch_size)
 
     return config
+
+def fun_config(opt):
+    if opt['problem'] == 1:
+        opt['config'] = fun_regression_config(opt['args'])
+    else:
+        opt['config'] = fun_classification_config(opt['args'])
+
+    opt['config']['callbacks']       = opt['config']['callbacks']       + [MyThresholdCallback(threshold = opt['results']['original']['vl'], problem = opt['experiment'])]
+    opt['config']['callbacks_tfmot'] = opt['config']['callbacks_tfmot'] + [MyThresholdCallback(threshold = opt['results']['original']['vl'], problem = opt['experiment'])]
+
+    return opt
+
+
 
 '''
 -MODELS
@@ -1519,7 +1784,7 @@ def fun_model_electrical_stability_fcnet(opt):
               callbacks       = opt['config']['callbacks'],
               validation_data = (opt['data']['datain_vl'], opt['data']['dataou_vl']),
               batch_size      = opt['config']['batch_size'],
-              verbose         = 1,
+              verbose         = opt['verbose']['original'],
               validation_freq = 1)
     
     model.save(opt['files']['original'], 
@@ -1528,16 +1793,123 @@ def fun_model_electrical_stability_fcnet(opt):
 
     return model
 
-# def fun_mnist_lenet(opt):
-#     return model
+def fun_model_mnist_lenet(opt):
+    # build, fit, and save the model
+    shapein = opt['data']['datain_tr'].shape[1:]
+    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
 
-# def fun_cifar10_alexnet(opt):
-#     return model
+    #LeNet: LeCun, Y., Bottou, L., Bengio, Y., & Haffner, P. (1998). Gradient-based learning applied to document recognition. Proceedings of the IEEE, 86(11), 2278-2324.
 
-# def fun_cifar10_vgg16(opt):
-#     return model
+    inputs  = tf.keras.Input(shapein)
 
-# def fun_x_ray_vgg16(opt):
+    x       = tf.keras.layers.Conv2D(6, 5)           (inputs)
+    x       = tf.keras.layers.Activation('tanh')     (x)
+    x       = tf.keras.layers.AveragePooling2D(2)    (x)
+    x       = tf.keras.layers.Activation('sigmoid')  (x)
+
+    x       = tf.keras.layers.Conv2D(16, 5)          (x)
+    x       = tf.keras.layers.Activation('tanh')     (x)
+    x       = tf.keras.layers.AveragePooling2D(2)    (x)
+    x       = tf.keras.layers.Activation('sigmoid')  (x)
+
+    x       = tf.keras.layers.Conv2D(120, 5)         (x)
+    x       = tf.keras.layers.Activation('tanh')     (x)
+    x       = tf.keras.layers.Flatten()              (x)
+
+    x       = tf.keras.layers.Dense(84)              (x)
+    x       = tf.keras.layers.Activation('sigmoid')  (x)
+
+    outputs = tf.keras.layers.Dense(units = shapeou)         (x)
+    
+    model = tf.keras.Model(inputs, outputs)
+    model.compile(optimizer = opt['config']['optimizer']['original'], 
+                  loss      = opt['config']['loss'],
+                  metrics   = opt['config']['metrics'])
+    
+    model.summary() # can be depreciated
+
+    print(opt['config']['optimizer']['original'])
+    print(opt['config']['loss'])
+    print(opt['config']['metrics'])
+    print(opt['config']['optimizer']['original'].lr)
+
+    model.fit(opt['data']['datain_tr'],
+              opt['data']['dataou_tr'],
+              epochs          = opt['config']['epochs']['original'],
+              callbacks       = opt['config']['callbacks'],
+              validation_data = (opt['data']['datain_vl'], opt['data']['dataou_vl']),
+              batch_size      = opt['config']['batch_size'],
+              verbose         = opt['verbose']['original'],
+              validation_freq = 1)
+    
+    model.save(opt['files']['original'], 
+               overwrite         = True, 
+               include_optimizer = False)
+
+
+    return model
+
+def fun_model_cifar10_modified_lenet(opt):
+    # build, fit, and save the model
+    shapein = opt['data']['datain_tr'].shape[1:]
+    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+
+    #LeNet: LeCun, Y., Bottou, L., Bengio, Y., & Haffner, P. (1998). Gradient-based learning applied to document recognition. Proceedings of the IEEE, 86(11), 2278-2324.
+
+    inputs  = tf.keras.Input(shapein)
+
+    x       = tf.keras.layers.Conv2D(16, 5)          (inputs)
+    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = tf.keras.layers.BatchNormalization()   (x)
+    x       = tf.keras.layers.MaxPooling2D(2)        (x)
+    x       = tf.keras.layers.Dropout(0.25)          (x)   
+
+
+    x       = tf.keras.layers.Conv2D(128, 5)         (x)
+    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = tf.keras.layers.BatchNormalization()   (x)
+    x       = tf.keras.layers.MaxPooling2D(2)        (x)
+    x       = tf.keras.layers.Dropout(0.25)          (x)  
+
+    x       = tf.keras.layers.Conv2D(2048, 5)        (x)
+    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = tf.keras.layers.Flatten()              (x)
+    x       = tf.keras.layers.Dropout(0.25)          (x) 
+
+    x       = tf.keras.layers.Dense(1024)            (x)
+    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = tf.keras.layers.Dropout(0.25)          (x) 
+
+    outputs = tf.keras.layers.Dense(units = shapeou) (x)
+    
+    model = tf.keras.Model(inputs, outputs)
+    model.compile(optimizer = opt['config']['optimizer']['original'], 
+                  loss      = opt['config']['loss'],
+                  metrics   = opt['config']['metrics'])
+    
+    model.summary() # can be depreciated
+
+    print(opt['config']['optimizer']['original'])
+    print(opt['config']['loss'])
+    print(opt['config']['metrics'])
+    print(opt['config']['optimizer']['original'].lr)
+
+    model.fit(opt['data']['datain_tr'],
+              opt['data']['dataou_tr'],
+              epochs          = opt['config']['epochs']['original'],
+              callbacks       = opt['config']['callbacks'],
+              validation_data = (opt['data']['datain_vl'], opt['data']['dataou_vl']),
+              batch_size      = opt['config']['batch_size'],
+              verbose         = opt['verbose']['original'],
+              validation_freq = 1)
+    
+    model.save(opt['files']['original'], 
+               overwrite         = True, 
+               include_optimizer = False)
+
+    return model
+
+# def fun_model_x_ray_vgg16(opt):
 #     return model
 
 # def fun_mnist_hepex_ae1(opt):
@@ -1563,14 +1935,14 @@ INITIATE
 '''
 
 def fun_initiate(args):
-    opt = {}
+    opt         = {}
+    opt['args'] = args
 
     experiments = ['CUSTOM', 
                    'ELECTRICAL-STABILITY-FCNet', 
                    'MNIST-LeNet', 
-                   'CIFAR10-AlexNet',
-                   'CIFAR10-VGG16', 
-                   'X-RAY-VGG16', 
+                   'CIFAR10-Modified-LeNet',
+                   'X-RAY-Modified-LeNet', 
                    'MNIST-HEPEX-AE1', 
                    'MNIST-HEPEX-AE2', 
                    'MNIST-HEPEX-AE3', 
@@ -1599,21 +1971,27 @@ def fun_initiate(args):
         opt['pruning_stat'] = False
 
     # folder and file management
-    opt['path']               = {}
-    opt['path']['current']    = os.getcwd()
-    opt['path']['experiment'] = os.path.join(opt['path']['current'], experiment.lower())
-    opt['path']['original']   = os.path.join(opt['path']['current'], experiment.lower(), 'original')
-    opt['path']['hefriendly'] = os.path.join(opt['path']['current'], experiment.lower(), 'hefriendly')
-    opt['path']['pruned']     = os.path.join(opt['path']['current'], experiment.lower(), 'pruned')
-    opt['path']['data']       = os.path.join(opt['path']['current'], experiment.lower(), 'data')
-    opt['path']['results']    = os.path.join(opt['path']['current'], experiment.lower(), 'results')
+    opt['path']                 = {}
+    opt['path']['temp']         = {}
+
+    opt['path']['current']      = os.getcwd()
+    opt['path']['experiment']   = os.path.join(opt['path']['current'], experiment.lower())
+    opt['path']['original']     = os.path.join(opt['path']['experiment'], 'original')
+    opt['path']['hefriendly']   = os.path.join(opt['path']['experiment'], 'hefriendly')
+    opt['path']['pruned']       = os.path.join(opt['path']['experiment'], 'pruned')
+    opt['path']['data']         = os.path.join(opt['path']['experiment'], 'data')
+    opt['path']['results']      = os.path.join(opt['path']['experiment'], 'results')
+    opt['path']['temp']['pool'] = os.path.join(opt['path']['experiment'], 'temp', 'pool')
+    opt['path']['temp']['actn'] = os.path.join(opt['path']['experiment'], 'temp', 'actn')
     
     opt['files']                = {}
-    opt['files']['original']    = os.path.join(opt['path']['original'],   'model.h5')  
-    opt['files']['hefriendly']  = os.path.join(opt['path']['hefriendly'], 'model.h5')  
-    opt['files']['pruned']      = os.path.join(opt['path']['pruned'],     'model.h5')  
-    opt['files']['data']        = os.path.join(opt['path']['data'],       'data.npy')  
-    opt['files']['results']     = os.path.join(opt['path']['results'],    'results.txt') 
+    opt['files']['original']    = os.path.join(opt['path']['original'],     'model.h5')  
+    opt['files']['hefriendly']  = os.path.join(opt['path']['hefriendly'],   'model.h5')  
+    opt['files']['pruned']      = os.path.join(opt['path']['pruned'],       'model.h5')  
+    opt['files']['pool']        = os.path.join(opt['path']['temp']['pool'], 'model.h5') 
+    opt['files']['actn']        = os.path.join(opt['path']['temp']['actn'], 'model.h5') 
+    opt['files']['data']        = os.path.join(opt['path']['data'],         'data.npy')  
+    opt['files']['results']     = os.path.join(opt['path']['results'],      'results.txt') 
 
     fun_create_path(opt['path']['experiment'])
     fun_create_path(opt['path']['original'])
@@ -1621,16 +1999,34 @@ def fun_initiate(args):
     fun_create_path(opt['path']['pruned'])
     fun_create_path(opt['path']['data'])
     fun_create_path(opt['path']['results'])
+    fun_create_path(opt['path']['temp']['pool'])
+    fun_create_path(opt['path']['temp']['actn'])
+
+    # skip stat for debuging mode
+    opt['skip']         = {}
+    opt['skip']['pool'] = True
+    opt['skip']['actn'] = False
+
+    # verbose stat for debuging
+    opt['verbose']               = {}
+    opt['verbose']['hefriendly'] = {}
+    opt['verbose']['pruned']     = {}   
+
+    opt['verbose']['original']           = 1 
+    opt['verbose']['hefriendly']['pool'] = 0
+    opt['verbose']['hefriendly']['actn'] = 1
+    opt['verbose']['pruned']['pruning']  = 1
+    opt['verbose']['pruned']['culling']  = 1
 
     # get the data and config
     if 'mnist' in experiment.lower():
-       opt['data']  = fun_data_mnist()
+       opt['data']  = fun_data_mnist(opt['files']['data'])
     elif 'cifar10' in experiment.lower():
-        opt['data'] = fun_data_mnist()
+        opt['data'] = fun_data_cifar10(opt['files']['data'])
     elif 'electrical' in experiment.lower():
         opt['data'] = fun_data_electrical_stability(opt['files']['data'])
     elif 'custom' in experiment.lower():
-        opt['data'] = fun_data_custom()
+        opt['data'] = fun_data_custom() # NEEDS TO BE UPDATED
     else:
         assert False, 'Error! Read the guideline and double check the experiment information'
 
@@ -1722,12 +2118,6 @@ def fun_conclude(opt):
     print(" ")
     print("-------------------------------------------------------------------------------------------------------------------------")
     print(" ")
-
-
-
-    
-
-
 
 def main():
     parser = argparse.ArgumentParser(prog        = 'main_mlsurgery',
