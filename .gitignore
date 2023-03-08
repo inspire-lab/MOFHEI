@@ -147,4 +147,4 @@ dmypy.json
 cython_debug/
 
 # never add png files
-#*.png
+*.png
