@@ -2279,7 +2279,7 @@ def fun_initiate(args):
 
     # skip stat for debuging mode
     opt['skip']         = {}
-    opt['skip']['pool'] = True
+    opt['skip']['pool'] = False
     opt['skip']['actn'] = False
 
     # verbose stat for debuging
@@ -2289,16 +2289,16 @@ def fun_initiate(args):
 
     opt['verbose']['original']           = 1 
     opt['verbose']['hefriendly']['pool'] = 0
-    opt['verbose']['hefriendly']['actn'] = 1
-    opt['verbose']['pruned']['pruning']  = 1
-    opt['verbose']['pruned']['culling']  = 1
+    opt['verbose']['hefriendly']['actn'] = 0
+    opt['verbose']['pruned']['pruning']  = 0
+    opt['verbose']['pruned']['culling']  = 0
     
 
     # get the data and config
-    if '_lenet' in experiment.lower():
+    if '-lenet' in experiment.lower():
         experiment_model = 'lenet'
 
-    if '_ae' in experiment.lower():
+    if '-ae' in experiment.lower():
         experiment_model = 'ae'
 
     if 'mnist' in experiment.lower():
@@ -2307,6 +2307,8 @@ def fun_initiate(args):
         opt['data'] = fun_data_cifar10(opt['files']['data'], experiment_model = experiment_model)
     elif 'electrical' in experiment.lower():
         opt['data'] = fun_data_electrical_stability(opt['files']['data'])
+    elif 'x-ray' in experiment.lower():
+        opt['data'] = fun_data_xray64(opt['files']['data'])
     elif 'custom' in experiment.lower():
         opt['data'] = fun_data_custom() # NEEDS TO BE UPDATED
     else:
