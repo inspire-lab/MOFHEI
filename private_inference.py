@@ -1,19 +1,7 @@
-import aluminum_shark.core as shark
-import tensorflow as tf
-from mlsurgery import *
-import numpy as np
+import os
 import argparse
-
-import sys
-import time
-
-custom_objects = {
-    'DynamicPolyReLU_D2': DynamicPolyReLU_D2,
-    'DynamicPolyReLU_D3': DynamicPolyReLU_D3,
-    'DynamicPolyReLU_D4': DynamicPolyReLU_D4,
-    'Square': Square,
-    'CustomModel': CustomModel
-}
+import datetime
+import json
 
 # crypto configs for the different models
 crypto_configs = {
@@ -64,21 +52,96 @@ parser.add_argument('-O',
                     '--original',
                     action='store_true',
                     help='run the orginal unpruned model instead')
+parser.add_argument('-q',
+                    '--quiet',
+                    action='store_true',
+                    help='quite tensorflow. also quites warnings and errors')
+parser.add_argument('-x',
+                    '--progress',
+                    action='store_true',
+                    help='shows progress of the computation')
 
-experimental = parser.add_argument_group('experimental features')
+experimental = parser.add_argument_group(
+    'experimental features. most of these impact performance')
 experimental.add_argument(
     '-c',
     '--clear_memory',
     action='store_true',
+    help='can help reduce memory consompution espeacily for larger models. '
+    'might impact execution time')
+experimental.add_argument(
+    '-p',
+    '--parallel_encryption',
+    action='store_true',
     help=
-    'can help reduce memory consompution espeacily for larger models. might impact execution time'
-)
+    'runs input encryption on multiple threads. massivley speeds up encryption'
+    ' time, BUT might impact inference performance')
+experimental.add_argument(
+    '-l',
+    '--log_memory',
+    action='store_true',
+    help='logs the maximum memory requirement of the private inference.'
+    ' could impact performance')
+experimental.add_argument(
+    '-lh',
+    '--log_memory_history',
+    action='store_true',
+    help=
+    'tracks the memory consumption of the private inference, recording values '
+    ' over time. implies -l. could impact performance. ')
+experimental.add_argument(
+    '-co',
+    '--count_operations',
+    action='store_true',
+    help='counts the number of cipertext operations. impacts performance')
 
 args = parser.parse_args()
+
+# create an object that will hold all our results and configs
+result_dict = {}
+result_dict['config'] = vars(args)
+result_dict['dataset'] = args.dataset
+
+if args.quiet:
+  # disable a bunch of logging
+  os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+if args.parallel_encryption:
+  # enable parallel encryption
+  os.environ['ALUMINUM_SHARK_PARALLEL_ENCRYPTION'] = '1'
+
+import aluminum_shark.core as shark
+import tensorflow as tf
+
+if args.quiet:
+  # disable a bunch of logging
+  tf.compat.v1.logging.set_verbosity(50)
+
+from mlsurgery import *
+import numpy as np
+
+import sys
+import time
+
+custom_objects = {
+    'DynamicPolyReLU_D2': DynamicPolyReLU_D2,
+    'DynamicPolyReLU_D3': DynamicPolyReLU_D3,
+    'DynamicPolyReLU_D4': DynamicPolyReLU_D4,
+    'Square': Square,
+    'CustomModel': CustomModel
+}
+
 data_set = args.dataset
 verbose = args.verbose or args.extra_verbose
 
 _, _, x_test, y_test = fun_data(name=data_set, calibrate=True)
+
+print('creating memory callback')
+from aluminum_shark.tools.memory_logger import MemoryLogger
+
+if args.log_memory or args.log_memory_history:
+  logger = MemoryLogger(log_history=args.log_memory_history)
+  logger.start()
 
 
 # load model
@@ -93,6 +156,8 @@ def create_model():
     model.summary()
   return model
 
+
+result_dict['culled'] = not args.original
 
 # display model summary and exit
 if args.model_info:
@@ -116,40 +181,79 @@ if verbose:
   else:
     backend.set_log_level(shark.INFO)
 
+if args.count_operations:
+  backend.enable_ressource_monitor(True)
+
 # create context and keys
 start = time.time()
 sys.stdout.write('Creating context...')
+result_dict['crypt_config'] = crypto_configs[data_set]
 context = backend.createContext(scheme='ckks', **crypto_configs[data_set])
-print(' done. {:.2f}seconds'.format(time.time() - start))
+end = time.time()
+result_dict['context_creation'] = end - start
+print(' done. {:.2f}seconds'.format(end - start))
 
 start = time.time()
 sys.stdout.write('Generating keys...')
+sys.stdout.flush()
 context.create_keys()
-print(' done. {:.2f}seconds'.format(time.time() - start))
+end = time.time()
+result_dict['key_creation'] = end - start
+print(' done. {:.2f}seconds'.format(end - start))
 
 # extract and encrypt a batch of data
 n_slots = context.n_slots
 print('running with a batchsize of:', n_slots)
+result_dict['batch_size'] = end - start
 x_in = x_test[:n_slots]
 start = time.time()
 sys.stdout.write('Encrypting data...')
+sys.stdout.flush()
 ctxt = context.encrypt(x_in, name='x', dtype=float, layout='batch')
-print(' done. {:.2f}seconds'.format(time.time() - start))
+end = time.time()
+result_dict['encryption'] = end - start
+print(' done. {:.2f}seconds'.format(end - start))
 
 # run encrypted computation
 enc_model = shark.EncryptedExecution(model_fn=create_model,
                                      context=context,
-                                     clear_memory=args.clear_memory)
+                                     clear_memory=args.clear_memory,
+                                     show_progress=args.progress)
 start = time.time()
 sys.stdout.write('Running private inference... ')
 result_ctxt = enc_model(ctxt)
 end = time.time()
+result_dict['private_inference'] = end - start
 print('private inference took: ', end - start, 'seconds')
+result_dict['max_memory'] = -1
+if args.log_memory or args.log_memory_history:
+  mem_log = logger.stop_and_read(unit='gb')
+  result_dict['max_memory'] = mem_log['rss']
+  print("Memmory requirements: ", mem_log)
+  # plot memroy history if availabe
+  if args.log_memory_history:
+    import matplotlib.pyplot as plt
+    vms_history = mem_log['vms_history']
+    rms_history = mem_log['rss_history']
+
+    t = list(range(len(vms_history)))
+    plt.plot(t, vms_history, label='vms')
+    plt.plot(t, rms_history, label='rms')
+
+    plt.xlabel('Time in s')
+    plt.ylabel('Memory in GB')
+    plt.legend()
+
+    plt.savefig('memory_log_' +
+                datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.png')
+
 # decrypt data
 start = time.time()
 sys.stdout.write('Decrypting data...')
 y_pi = context.decrypt_double(result_ctxt[0])
-print(' done. {:.2f}seconds'.format(time.time() - start))
+end = time.time()
+result_dict['decryption'] = end - start
+print(' done. {:.2f}seconds'.format(end - start))
 print(y_pi.shape, y_test.shape)
 
 # bring the output data into the the correct form. we assume that this
@@ -165,14 +269,33 @@ model = create_model()
 start = time.time()
 sys.stdout.write('Running plain model...')
 y_plain = model(x_in)
-print(' done. {:.2f}seconds'.format(time.time() - start))
+end = time.time()
+result_dict['plain_inference'] = end - start
+print(' done. {:.2f}seconds'.format(end - start))
 
 # compute plain and encyrpted accuracy
 acc_plain = np.sum(
     np.argmax(y_plain, axis=1) == y_test[:n_slots]) / len(y_plain)
 acc_pi = np.sum(np.argmax(y_pi, axis=1) == y_test[:n_slots]) / len(y_pi)
+result_dict['plain_performance'] = acc_plain
+result_dict['encrypted_performance'] = acc_pi
 
 print(f'encrypted accuracy {acc_pi} plain accuracy {acc_plain}')
 error = np.sum(
     np.argmax(y_plain, axis=1) != np.argmax(y_pi, axis=1)) / len(y_pi)
 print(f'error introduced by encryption: {error}')
+result_dict['encyrption_error'] = error
+
+monitor = enc_model.monitor
+history = monitor.compile_history(clear_no_ciphertext_ops=True)
+result_dict.update(history)
+
+# format it nicely and write it to file:
+now = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+model_type = 'oringinal' if args.original else 'culled'
+
+dict_string = json.dumps(result_dict, indent=2)
+
+file_name = data_set + '_' + model_type + '_result_' + now + '.json'
+with open(file_name, 'w') as f:
+  f.write(dict_string)
