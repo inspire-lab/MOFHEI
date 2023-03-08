@@ -1422,7 +1422,7 @@ def fun_save_data(file_path,
 
     np.save(file_path, data)
 
-def fun_data_mnist(file_path, validation_split = 0.05):
+def fun_data_mnist(file_path, model_type = 'lenet', validation_split = 0.05):
     (datain_tr, dataou_tr), (datain_te, dataou_te) = tf.keras.datasets.mnist.load_data()
     datain_tr, datain_vl, dataou_tr, dataou_vl = train_test_split(datain_tr, 
                                                                   dataou_tr, 
@@ -1445,14 +1445,13 @@ def fun_data_mnist(file_path, validation_split = 0.05):
                                                             datain_te,
                                                             cond = False)
     
-    
-
     data['datain_tr'] = datain_tr
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
     # LeNet receives 32 by 32 inputs
-    data  = fun_input_padding(data)
+    if model_type == 'lenet':
+        data  = fun_input_padding(data)
 
     # expand image dimensions in necessary
     data  = fun_image_dimension_control(data)
@@ -1555,7 +1554,7 @@ def fun_loader_cifar10(file_path):
 
     return data
 
-def fun_loader_mnist(file_path):
+def fun_loader_mnist(file_path, model_type = 'lenet'):
     data = np.load(file_path, allow_pickle=True).item()
     
     datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
@@ -1568,7 +1567,8 @@ def fun_loader_mnist(file_path):
     data['datain_te'] = datain_te
 
     # LeNet receives 32 by 32 inputs
-    data  = fun_input_padding(data)
+    if model_type == 'lenet':
+        data  = fun_input_padding(data)
 
     data             = fun_image_dimension_control(data)
     
@@ -1697,8 +1697,6 @@ def fun_config(opt):
     opt['config']['callbacks_tfmot'] = opt['config']['callbacks_tfmot'] + [MyThresholdCallback(threshold = opt['results']['original']['vl'], problem = opt['experiment'])]
 
     return opt
-
-
 
 '''
 -MODELS
@@ -2020,7 +2018,10 @@ def fun_initiate(args):
 
     # get the data and config
     if 'mnist' in experiment.lower():
-       opt['data']  = fun_data_mnist(opt['files']['data'])
+       if 'lenet' in experiment.lower():
+           opt['data']  = fun_data_mnist(opt['files']['data'], model_type='lenet')
+       else:
+           opt['data']  = fun_data_mnist(opt['files']['data'], model_type='ae')    
     elif 'cifar10' in experiment.lower():
         opt['data'] = fun_data_cifar10(opt['files']['data'])
     elif 'electrical' in experiment.lower():
