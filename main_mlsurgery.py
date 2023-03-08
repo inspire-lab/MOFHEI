@@ -28,6 +28,12 @@ warnings.filterwarnings("ignore")
 CUSTOM LAYERS, CLASSES, AND OBJECTS
 '''
 
+class MyPatienceCallback(tf.keras.callbacks.EarlyStopping):
+  def __init__(self,*args, **kwargs) -> None:
+    super().__init__(*args, **kwargs)
+  def on_epoch_end(self, epoch, logs=None):
+    super().on_epoch_end(epoch, logs)
+    print(self.wait, self.best, self.patience)
 
 class ReconstructionMeanSquaredError(tf.keras.losses.Loss):
 
@@ -87,20 +93,20 @@ class PDynamicPolyActn_D4(DynamicPolyActn_D3, tfmot.sparsity.keras.PrunableLayer
         return [self.kernel]
 
 class MyThresholdCallback(tf.keras.callbacks.Callback):
-    def __init__(self, threshold, problem):
+    def __init__(self, threshold, monitor, problem):
         super(MyThresholdCallback, self).__init__()
         self.threshold = threshold
-        self.problem = problem
+        self.problem   = problem
+        self.monitor   = monitor
 
     def on_epoch_end(self, epoch, logs=None): 
-        #print(logs.keys())
-        if self.problem == 'classification':
-            val_msm = logs["val_sparse_categorical_accuracy"]
+        val = logs[self.monitor]
+        if self.problem == 0:
+            if logs[self.monitor] >= self.threshold:
+                self.model.stop_training = True
         else:
-            val_msm = logs["val_loss"]
-            
-        if val_msm >= self.threshold:
-            self.model.stop_training = True
+            if logs[self.monitor] <= self.threshold:
+                self.model.stop_training = True
 
 class CustomModel(tf.keras.Model):
 
@@ -468,6 +474,11 @@ class MLSurgery():
                                                    batch_size = 32) 
         return msm  
 
+    def fun_model_estimation(self, name = 'original'):
+        self.opt['estimations'][name]['tr'] = self.opt['models'][name].predict(self.opt['data']['datain_tr'])
+        self.opt['estimations'][name]['vl'] = self.opt['models'][name].predict(self.opt['data']['datain_vl'])
+        self.opt['estimations'][name]['te'] = self.opt['models'][name].predict(self.opt['data']['datain_te'])
+
     def fun_max2ave(self):
         '''
         Trun every max pooling layer into average pooling layer
@@ -511,6 +522,7 @@ class MLSurgery():
             x           = MLSurgery.fun_model_stack(df_clone)
             self.opt['models']['hefriendly'] = MLSurgery.fun_model_create(self, 'transfer', x)
 
+            self.opt = fun_config(self.opt)
             self.opt['models']['hefriendly'].fit(self.opt['data']['datain_tr'], 
                                                  self.opt['data']['dataou_tr'], 
                                                  epochs          = self.opt['config']['epochs']['transfer'], 
@@ -530,6 +542,7 @@ class MLSurgery():
                                                      metrics   = self.opt['config']['metrics'])
             
             #model_clone.compile(optimizer = self.optimizer, loss = self.loss)
+            self.opt = fun_config(self.opt)
             self.opt['models']['hefriendly'].fit(self.opt['data']['datain_tr'], 
                                                  self.opt['data']['dataou_tr'], 
                                                  epochs          = self.opt['config']['epochs']['finetune'], 
@@ -677,12 +690,13 @@ class MLSurgery():
             x           = MLSurgery.fun_model_stack(df_clone)
             self.opt['models']['hefriendly'] = MLSurgery.fun_model_create(self, 'transfer', x)
 
-            print('transfer', ind, ind_actn)
+            # print('transfer', ind, ind_actn)
+
+            # self.opt = fun_config(self.opt)
+
+            # print(self.opt['config']['callbacks'])
 
             self.opt = fun_config(self.opt)
-
-            print(self.opt['config']['callbacks'])
-
             self.opt['models']['hefriendly'].fit(self.opt['data']['datain_tr'], 
                                                  self.opt['data']['dataou_tr'], 
                                                  epochs          = self.opt['config']['epochs']['transfer'], 
@@ -690,7 +704,7 @@ class MLSurgery():
                                                  shuffle         = True, 
                                                  batch_size      = self.opt['batch_size'], 
                                                  validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
-                                                 callbacks       = self.opt['config']['callbacks'][1:2])
+                                                 callbacks       = self.opt['config']['callbacks'])
             
             # unfreez all
             for layer in self.opt['models']['hefriendly'].layers:
@@ -702,7 +716,7 @@ class MLSurgery():
                                                      metrics   = self.opt['config']['metrics'])
             
             #model_clone.compile(optimizer = self.optimizer, loss = self.loss)
-            print('finetune', ind, ind_actn)
+            #print('finetune', ind, ind_actn)
 
             self.opt = fun_config(self.opt)
             self.opt['models']['hefriendly'].fit(self.opt['data']['datain_tr'], 
@@ -904,31 +918,6 @@ class MLSurgery():
         
         return info
 
-    def fun_weight_observation(self, range_limit = True):
-        '''
-        weight_observation(model, range_limit = True)
-        '''
-        
-        for layer in self.opt['models']['pruned'].layers:
-            if 'dense' in layer.name:
-                weight = layer.weights[0].numpy()
-                name_case   = layer.weights[0].name 
-                name_case   = '_'.join([i0 if ':' not in i0 else ''.join(i0.split(':')) for i0 in name_case.split('/')]) + '.png'
-                name_case   = os.path.join(self.opt['path']['results'] , name_case) 
-                if range_limit:
-                    if weight.shape[0] > 100:
-                        weight = weight[:100,:]
-
-                    if weight.shape[1] > 100:
-                        weight = weight[:,:100]
-                
-                plt.figure(figsize = [5,5])
-                plt.imshow(np.abs(weight)==0, cmap = 'gray');
-                #plt.grid()
-                plt.show();
-                plt.title(layer.name, fontsize = 20)
-                plt.savefig(name_case, dpi = 600)
-
     def fun_generate_model_plugbacked(self, info):
 
         '''
@@ -1005,6 +994,7 @@ class MLSurgery():
 
         info = MLSurgery.fun_generate_model_pruning(self, name = 'pruned')
 
+        self.opt = fun_config(self.opt)
         self.opt['models']['pruned'].fit(self.opt['data']['datain_tr'], 
                                          self.opt['data']['dataou_tr'], 
                                          epochs          = self.opt['config']['epochs']['pruned'], 
@@ -1190,7 +1180,7 @@ class MLSurgery():
                                              loss       = self.opt['config']['loss'], 
                                              metrics    = self.opt['config']['metrics'])
 
-        
+        self.opt = fun_config(self.opt)
         self.opt['models']['pruned'].fit(self.opt['data']['datain_tr'], 
                                          self.opt['data']['dataou_tr'], 
                                          epochs          = self.opt['config']['epochs']['pruned'], 
@@ -1209,7 +1199,7 @@ class MLSurgery():
 
         # model_culled.compile(optimizer = optimizer,
         #                     loss       = self.loss)
-        
+        self.opt = fun_config(self.opt)
         self.opt['models']['pruned'].fit(self.opt['data']['datain_tr'], 
                                          self.opt['data']['dataou_tr'], 
                                          epochs          = self.opt['config']['epochs']['pruned'], 
@@ -1223,6 +1213,32 @@ class MLSurgery():
         
         return msm_case
 
+    def fun_weight_observation(self, range_limit = True):
+        '''
+        weight_observation(model, range_limit = True)
+        '''
+        
+        for layer in self.opt['models']['pruned'].layers:
+            if 'dense' in layer.name:
+                weight = layer.weights[0].numpy()
+                name_case   = layer.weights[0].name 
+                name_case   = '_'.join([i0 if ':' not in i0 else ''.join(i0.split(':')) for i0 in name_case.split('/')]) + '.png'
+                name_case   =  '{}'.format(int(self.opt['target_sparsity']*100)) + '_' + name_case 
+                name_case   = os.path.join(self.opt['path']['results'] , name_case) 
+                if range_limit:
+                    if weight.shape[0] > 100:
+                        weight = weight[:100,:]
+
+                    if weight.shape[1] > 100:
+                        weight = weight[:,:100]
+                
+                plt.figure(figsize = [5,5])
+                plt.imshow(np.abs(weight)==0, cmap = 'gray');
+                #plt.grid()
+                plt.show();
+                plt.title(layer.name, fontsize = 20)
+                plt.savefig(name_case, dpi = 600)
+
     def run(self):
 
         MLSurgery.fun_clear()
@@ -1232,7 +1248,7 @@ class MLSurgery():
         else:
             msm_name = 'MSE'
 
-        print("{} of The Original Model for Testing Data: {}".format(msm_name, self.opt['results']['original']['te']))
+        print("Experiment {} | {} of The Original Model for Testing Data: {}".format(self.opt['experiment'], msm_name, self.opt['results']['original']['te']))
         print("-------------------------------------------------------------------------------------------------------------------------")
 
         if self.opt['hefriendly_stat']:
@@ -1249,6 +1265,8 @@ class MLSurgery():
             print("Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | End   | Testing {}: {}".format(msm_name, msm))
 
             print("Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | Start |")
+
+            
 
 
             if self.opt['skip']['actn']:
@@ -1292,11 +1310,11 @@ class MLSurgery():
             
             MLSurgery.fun_model_saving(self, name = 'pruned')
 
+        MLSurgery.fun_model_estimation(self, name = 'original')
+        MLSurgery.fun_model_estimation(self, name = 'hefriendly')
+        MLSurgery.fun_model_estimation(self, name = 'pruned')
 
         return self.opt
-
-
-
 
 '''
 CUSTOM FUNCTIONS
@@ -1365,7 +1383,7 @@ def fun_image_calibration(datain_tr,
         # converts between 0 and 1
         return datain_tr/255, datain_vl/255, datain_te/255
 
-def fun_nonimage_callibration(datain_tr, 
+def fun_nonimage_calibration(datain_tr, 
                               datain_vl,
                               datain_te,
                               cond = False):
@@ -1387,9 +1405,45 @@ def fun_nonimage_callibration(datain_tr,
 -DATA
 '''
 
+def fun_reconstruction(opt, 
+                        data,
+                        name      = 'original',
+                        domain    = 'real', #recon
+                        data_type = 'tr',  
+                        num_h     = 10, 
+                        num_v     = 10):
+    
+    if 'mnist' in opt['experiment'].lower():
+        data = data.reshape((data.shape[0], 28, 28, 1 ))
+    else:
+        data = data.reshape((data.shape[0], 32, 32, 3 ))
+    
+    filename = "AEs_{}_{}_{}.png".format(name, domain, data_type)
+    path     = os.path.join(opt['path']['results'], 
+                        filename)
+    width     = int(num_h *  data.shape[1]) 
+    height    = int(num_v *  data.shape[2])
+    h         = data.shape[1]
+    v         = data.shape[2]
+    img       = np.empty((width, height))
+
+    c_h = 0
+    c   = 0
+    for _ in range(num_h):
+        c_v = 0
+        for _ in range(num_v):
+            img[c_h : c_h + h, c_v : c_v + v] = data[c,:,:,0]
+            c = c + 1
+
+            c_v = c_v + v
+
+        c_h = c_h + h
+
+    plt.imsave(path, img, cmap = 'gray', dpi = 600)
+
 def fun_input_ravel(data):
     
-    shape2            =  int(data['datain_tr'][1] *  data['datain_tr'][2])
+    shape2            =  int(data['datain_tr'].shape[1] * data['datain_tr'].shape[2] * data['datain_tr'].shape[3])
 
     data['datain_tr'] = data['datain_tr'].reshape((data['datain_tr'].shape[0] , shape2))
     data['datain_vl'] = data['datain_vl'].reshape((data['datain_vl'].shape[0] , shape2))
@@ -1459,11 +1513,14 @@ def fun_data_mnist(file_path, experiment_model = 'lenet', validation_split = 0.0
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
+
     if experiment_model == 'lenet':
         # LeNet receives 32 by 32 inputs
         data  = fun_input_padding(data)
         # expand image dimensions in necessary
-        data  = fun_image_dimension_control(data)
+
+    data  = fun_image_dimension_control(data)
+
 
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
@@ -1497,11 +1554,7 @@ def fun_data_cifar10(file_path, experiment_model = 'lenet', validation_split = 0
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
-    if experiment_model == 'lenet': # this statement will be depreciated
-        # LeNet receives 32 by 32 inputs
-        # data  = fun_input_padding(data)
-        # expand image dimensions in necessary
-        data  = fun_image_dimension_control(data)
+    data  = fun_image_dimension_control(data)
 
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
@@ -1516,10 +1569,10 @@ def fun_data_electrical_stability(file_path, validation_split = 0.05):
 
     data = np.load(file_path, allow_pickle=True).item()
 
-    datain_tr, datain_vl, datain_te = fun_nonimage_callibration(data['datain_tr'], 
-                                                                data['datain_vl'],
-                                                                data['datain_te'],
-                                                                cond = False)
+    datain_tr, datain_vl, datain_te = fun_nonimage_calibration(data['datain_tr'], 
+                                                               data['datain_vl'],
+                                                               data['datain_te'],
+                                                               cond = False)
 
     data['datain_tr'] = datain_tr
     data['datain_vl'] = datain_vl
@@ -1535,14 +1588,16 @@ def fun_data_xray64(file_path):
 
     data = np.load(file_path, allow_pickle=True).item()
 
-    datain_tr, datain_vl, datain_te = fun_nonimage_callibration(data['datain_tr'], 
-                                                                data['datain_vl'],
-                                                                data['datain_te'],
-                                                                cond = False)
+    datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
+                                                            data['datain_vl'],
+                                                            data['datain_te'],
+                                                            cond = False)
 
     data['datain_tr'] = datain_tr
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
+
+    data              = fun_image_dimension_control(data)
 
     return data
 
@@ -1568,11 +1623,12 @@ def fun_loader_mnist(file_path, experiment_model = 'lenet'):
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
+    data  = fun_image_dimension_control(data)
+
     if experiment_model == 'lenet':
         # LeNet receives 32 by 32 inputs
         data  = fun_input_padding(data)
         # expand image dimensions in necessary
-        data  = fun_image_dimension_control(data)
 
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
@@ -1592,11 +1648,7 @@ def fun_loader_cifar10(file_path, experiment_model = 'lenet'):
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
-    if experiment_model == 'lenet': # this statement will be depreciated
-        # LeNet receives 32 by 32 inputs
-        # data  = fun_input_padding(data)
-        # expand image dimensions in necessary
-        data  = fun_image_dimension_control(data)
+    data  = fun_image_dimension_control(data)
 
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
@@ -1607,10 +1659,10 @@ def fun_loader_electrical_stability(file_path):
 
     data = np.load(file_path, allow_pickle=True).item()
 
-    datain_tr, datain_vl, datain_te = fun_nonimage_callibration(data['datain_tr'], 
-                                                                data['datain_vl'],
-                                                                data['datain_te'],
-                                                                cond = False)
+    datain_tr, datain_vl, datain_te = fun_nonimage_calibration(data['datain_tr'], 
+                                                               data['datain_vl'],
+                                                               data['datain_te'],
+                                                               cond = False)
 
     data['datain_tr'] = datain_tr
     data['datain_vl'] = datain_vl
@@ -1721,9 +1773,13 @@ def fun_config(opt):
     else:
         opt['config'] = fun_classification_config(opt['args'])
 
-    opt['config']['callbacks']       = opt['config']['callbacks']       + [MyThresholdCallback(threshold = opt['results']['original']['vl'], problem = opt['experiment'])]
-    opt['config']['callbacks_tfmot'] = opt['config']['callbacks_tfmot'] + [MyThresholdCallback(threshold = opt['results']['original']['vl'], problem = opt['experiment'])]
-
+    opt['config']['callbacks']       = opt['config']['callbacks']       + [MyThresholdCallback(threshold = opt['results']['original']['vl'], 
+                                                                                               problem   = opt['problem_type'],
+                                                                                               monitor   = opt['config']['monitor'])]
+    
+    opt['config']['callbacks_tfmot'] = opt['config']['callbacks_tfmot'] + [MyThresholdCallback(threshold = opt['results']['original']['vl'], 
+                                                                                               problem   = opt['problem_type'],
+                                                                                               monitor   = opt['config']['monitor'])]
     return opt
 
 '''
@@ -1818,6 +1874,9 @@ def fun_model_mnist_lenet(opt):
     # build, fit, and save the model
     shapein = opt['data']['datain_tr'].shape[1:]
     shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+
+    print("HERE*&%*&^*&^*&^*&^*&^*^",shapein)
+
 
     #LeNet: LeCun, Y., Bottou, L., Bengio, Y., & Haffner, P. (1998). Gradient-based learning applied to document recognition. Proceedings of the IEEE, 86(11), 2278-2324.
 
@@ -1994,7 +2053,7 @@ def fun_model_x_ray_modified_lenet(opt):
 def fun_model_mnist_hepex_ae1(opt):
     # build, fit, and save the model
     shapein = opt['data']['datain_tr'].shape[1:]
-    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+    shapeou = opt['data']['datain_tr'].shape[-1]
 
     inputs  = tf.keras.Input(shapein)
 
@@ -2029,7 +2088,7 @@ def fun_model_mnist_hepex_ae1(opt):
 def fun_model_mnist_hepex_ae2(opt):
     # build, fit, and save the model
     shapein = opt['data']['datain_tr'].shape[1:]
-    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+    shapeou = opt['data']['datain_tr'].shape[-1]
 
     inputs  = tf.keras.Input(shapein)
 
@@ -2064,7 +2123,7 @@ def fun_model_mnist_hepex_ae2(opt):
 def fun_model_mnist_hepex_ae3(opt):
     # build, fit, and save the model
     shapein = opt['data']['datain_tr'].shape[1:]
-    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+    shapeou = opt['data']['datain_tr'].shape[-1]
 
     inputs  = tf.keras.Input(shapein)
 
@@ -2101,7 +2160,7 @@ def fun_model_mnist_hepex_ae3(opt):
 def fun_model_cifar10_hepex_ae1(opt):
     # build, fit, and save the model
     shapein = opt['data']['datain_tr'].shape[1:]
-    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+    shapeou = opt['data']['datain_tr'].shape[-1]
 
     inputs  = tf.keras.Input(shapein)
 
@@ -2136,7 +2195,7 @@ def fun_model_cifar10_hepex_ae1(opt):
 def fun_model_cifar10_hepex_ae2(opt):
     # build, fit, and save the model
     shapein = opt['data']['datain_tr'].shape[1:]
-    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+    shapeou = opt['data']['datain_tr'].shape[-1]
 
     inputs  = tf.keras.Input(shapein)
 
@@ -2171,7 +2230,7 @@ def fun_model_cifar10_hepex_ae2(opt):
 def fun_model_cifar10_hepex_ae3(opt):
     # build, fit, and save the model
     shapein = opt['data']['datain_tr'].shape[1:]
-    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+    shapeou = opt['data']['datain_tr'].shape[-1]
 
     inputs  = tf.keras.Input(shapein)
 
@@ -2234,6 +2293,7 @@ def fun_initiate(args):
     opt['target_sparsity']              = float(args.target_sparsity)
     opt['target_frequency']             = int(args.target_frequency)
     opt['batch_size']                   = int(args.batch_size)
+    opt['problem_type']                 = int(args.problem_type)
 
     if args.hefriendly_stat == 'True':
         opt['hefriendly_stat'] = True
@@ -2250,7 +2310,7 @@ def fun_initiate(args):
     opt['path']['temp']         = {}
 
     opt['path']['current']      = os.getcwd()
-    opt['path']['experiment']   = os.path.join(opt['path']['current'], experiment.lower())
+    opt['path']['experiment']   = os.path.join(opt['path']['current'],    'experiment_' + experiment.lower())
     opt['path']['original']     = os.path.join(opt['path']['experiment'], 'original')
     opt['path']['hefriendly']   = os.path.join(opt['path']['experiment'], 'hefriendly')
     opt['path']['pruned']       = os.path.join(opt['path']['experiment'], 'pruned')
@@ -2262,11 +2322,11 @@ def fun_initiate(args):
     opt['files']                = {}
     opt['files']['original']    = os.path.join(opt['path']['original'],     'model.h5')  
     opt['files']['hefriendly']  = os.path.join(opt['path']['hefriendly'],   'model.h5')  
-    opt['files']['pruned']      = os.path.join(opt['path']['pruned'],       'model.h5')  
+    opt['files']['pruned']      = os.path.join(opt['path']['pruned'],       'model_{}.h5'.format(int(opt['target_sparsity'] * 100)))  
     opt['files']['pool']        = os.path.join(opt['path']['temp']['pool'], 'model.h5') 
     opt['files']['actn']        = os.path.join(opt['path']['temp']['actn'], 'model.h5') 
     opt['files']['data']        = os.path.join(opt['path']['data'],         'data.npy')  
-    opt['files']['results']     = os.path.join(opt['path']['results'],      'results.txt') 
+    opt['files']['results']     = os.path.join(opt['path']['results'],      'results_{}.txt'.format(int(opt['target_sparsity'] * 100))) 
 
     fun_create_path(opt['path']['experiment'])
     fun_create_path(opt['path']['original'])
@@ -2276,6 +2336,12 @@ def fun_initiate(args):
     fun_create_path(opt['path']['results'])
     fun_create_path(opt['path']['temp']['pool'])
     fun_create_path(opt['path']['temp']['actn'])
+
+    # estimatio ndictionaries 
+    opt['estimations']               = {}
+    opt['estimations']['original']   = {}
+    opt['estimations']['hefriendly'] = {}
+    opt['estimations']['pruned']     = {}
 
     # skip stat for debuging mode
     opt['skip']         = {}
@@ -2335,9 +2401,13 @@ def fun_initiate(args):
     opt['results']['original'] = fun_model_result(opt, model_type = 'original')
 
     #update callbacks 
-    opt['config']['callbacks']       = opt['config']['callbacks']       + [MyThresholdCallback(threshold = opt['results']['original']['vl'], problem = opt['experiment'])]
-    opt['config']['callbacks_tfmot'] = opt['config']['callbacks_tfmot'] + [MyThresholdCallback(threshold = opt['results']['original']['vl'], problem = opt['experiment'])]
-
+    opt['config']['callbacks']       = opt['config']['callbacks']       + [MyThresholdCallback(threshold = opt['results']['original']['vl'], 
+                                                                                               problem   = opt['problem_type'],
+                                                                                               monitor   = opt['config']['monitor'])]
+    
+    opt['config']['callbacks_tfmot'] = opt['config']['callbacks_tfmot'] + [MyThresholdCallback(threshold = opt['results']['original']['vl'], 
+                                                                                               problem   = opt['problem_type'],
+                                                                                               monitor   = opt['config']['monitor'])]
     return opt
 
 def fun_conclude(opt):
@@ -2345,6 +2415,23 @@ def fun_conclude(opt):
     print("-------------------------------------------------------------------------------------------------------------------------")
     print('Wait ... ')
     print("-------------------------------------------------------------------------------------------------------------------------")
+
+    if '-ae' in opt['experiment'].lower():
+        fun_reconstruction(opt, opt['data']['datain_tr'], name = 'original',    domain = 'real', data_type = 'tr')
+        fun_reconstruction(opt, opt['data']['datain_vl'], name = 'original',    domain = 'real', data_type = 'vl')
+        fun_reconstruction(opt, opt['data']['datain_te'], name = 'original',    domain = 'real', data_type = 'te')
+
+        fun_reconstruction(opt, opt['estimations']['original']['tr'],   name = 'original',   domain = 'rcon', data_type = 'tr')
+        fun_reconstruction(opt, opt['estimations']['hefriendly']['tr'], name = 'hefriendly', domain = 'rcon', data_type = 'tr')
+        fun_reconstruction(opt, opt['estimations']['pruned']['tr'],     name = 'pruned_{}'.format(int(opt['target_sparsity']*100)),     domain = 'rcon', data_type = 'tr')
+
+        fun_reconstruction(opt, opt['estimations']['original']['vl'],   name = 'original',   domain = 'rcon', data_type = 'vl')
+        fun_reconstruction(opt, opt['estimations']['hefriendly']['vl'], name = 'hefriendly', domain = 'rcon', data_type = 'vl')
+        fun_reconstruction(opt, opt['estimations']['pruned']['vl'],     name = 'pruned_{}'.format(int(opt['target_sparsity']*100)),     domain = 'rcon', data_type = 'vl')
+
+        fun_reconstruction(opt, opt['estimations']['original']['te'],   name = 'original',   domain = 'rcon', data_type = 'te')
+        fun_reconstruction(opt, opt['estimations']['hefriendly']['te'], name = 'hefriendly', domain = 'rcon', data_type = 'te')
+        fun_reconstruction(opt, opt['estimations']['pruned']['te'],     name = 'pruned_{}'.format(int(opt['target_sparsity']*100)),     domain = 'rcon', data_type = 'te')
 
     opt['results']['hefriendly'] = fun_model_result(opt, model_type = 'hefriendly')
     opt['results']['pruned']     = fun_model_result(opt, model_type = 'pruned')
