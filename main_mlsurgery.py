@@ -1222,7 +1222,7 @@ class MLSurgery():
             if 'dense' in layer.name:
                 weight = layer.weights[0].numpy()
                 name_case   = layer.weights[0].name 
-                name_case   = '_'.join([i0 if ':' not in i0 else ''.join(i0.split(':')) for i0 in name_case.split('/')]) + '.png'
+                name_case   = '_'.join([i0 if ':' not in i0 else ''.join(i0.split(':')) for i0 in name_case.split('/')]) + '.pdf'
                 name_case   =  '{}'.format(int(self.opt['target_sparsity']*100)) + '_' + name_case 
                 name_case   = os.path.join(self.opt['path']['results'] , name_case) 
                 if range_limit:
@@ -1418,7 +1418,7 @@ def fun_reconstruction(opt,
     else:
         data = data.reshape((data.shape[0], 32, 32, 3 ))
     
-    filename = "AEs_{}_{}_{}.png".format(name, domain, data_type)
+    filename = "AEs_{}_{}_{}.pdf".format(name, domain, data_type)
     path     = os.path.join(opt['path']['results'], 
                         filename)
     width     = int(num_h *  data.shape[1]) 
@@ -2504,16 +2504,14 @@ def main():
                                     (0) CUSTOM Model by User, 
                                     (1) ELECTRICAL-STABILITY-FCNet, 
                                     (2) MNIST-LeNet, 
-                                    (3) CIFAR10-AlexNet,
-                                    (4) X-RAY-AlexNet, 
-                                    (5) CIFAR10-VGG16, 
-                                    (6) X-RAY-VGG16, 
-                                    (7) MNIST-HEPEX-AE1, 
-                                    (8) MNIST-HEPEX-AE2, 
-                                    (9) MNIST-HEPEX-AE3, 
-                                    (10) CIFAR10-HEPEX-AE1, 
-                                    (11) CIFAR10-HEPEX-AE2,
-                                    (12) CIFAR10-HEPEX-AE3 ||| 
+                                    (3) CIFAR10-Modified-LeNet,
+                                    (4) X-RAY-Modified-LeNet, 
+                                    (5) MNIST-HEPEX-AE1, 
+                                    (6) MNIST-HEPEX-AE2, 
+                                    (7) MNIST-HEPEX-AE3, 
+                                    (8) CIFAR10-HEPEX-AE1, 
+                                    (9) CIFAR10-HEPEX-AE2,
+                                    (10) CIFAR10-HEPEX-AE3 ||| 
                                     If the custom model option (i.e., 0) is selected, the user 
                                     requires to have it saved at ./experiment_custom/original/model.h5, and 
                                     include a dictionary dataset at ./experiment_custom/original/data.npy
@@ -2525,7 +2523,7 @@ def main():
                                         'datain_te': A numpy array testing inputs,  
                                         'dataou_te': A numpy array testing outputs  (for classification: [0, 1, 2, ... ])
                                     ''',
-                        choices = [str(i0) for i0 in range(0,13,1)])
+                        choices = [str(i0) for i0 in range(0,11,1)])
     
     parser.add_argument('problem_type',
                         help    = "Select one of the following problems: (0) for classification and (1) for regression",
