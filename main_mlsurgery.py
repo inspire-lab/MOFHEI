@@ -1387,6 +1387,16 @@ def fun_nonimage_callibration(datain_tr,
 -DATA
 '''
 
+def fun_input_ravel(data):
+    
+    shape2            =  int(data['datain_tr'][1] *  data['datain_tr'][2])
+
+    data['datain_tr'] = data['datain_tr'].reshape((data['datain_tr'].shape[0] , shape2))
+    data['datain_vl'] = data['datain_vl'].reshape((data['datain_vl'].shape[0] , shape2))
+    data['datain_te'] = data['datain_te'].reshape((data['datain_te'].shape[0] , shape2))
+
+    return data
+
 def fun_input_padding(data, 
                       pad_values = [0,0], 
                       pad_size   = [2,2]):
@@ -1422,7 +1432,7 @@ def fun_save_data(file_path,
 
     np.save(file_path, data)
 
-def fun_data_mnist(file_path, model_type = 'lenet', validation_split = 0.05):
+def fun_data_mnist(file_path, experiment_model = 'lenet', validation_split = 0.05):
     (datain_tr, dataou_tr), (datain_te, dataou_te) = tf.keras.datasets.mnist.load_data()
     datain_tr, datain_vl, dataou_tr, dataou_vl = train_test_split(datain_tr, 
                                                                   dataou_tr, 
@@ -1449,16 +1459,18 @@ def fun_data_mnist(file_path, model_type = 'lenet', validation_split = 0.05):
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
-    # LeNet receives 32 by 32 inputs
-    if model_type == 'lenet':
+    if experiment_model == 'lenet':
+        # LeNet receives 32 by 32 inputs
         data  = fun_input_padding(data)
+        # expand image dimensions in necessary
+        data  = fun_image_dimension_control(data)
 
-    # expand image dimensions in necessary
-    data  = fun_image_dimension_control(data)
+    if experiment_model == 'ae':
+        data = fun_input_ravel(data)
 
     return data
     
-def fun_data_cifar10(file_path, validation_split = 0.05):
+def fun_data_cifar10(file_path, experiment_model = 'lenet', validation_split = 0.05):
     (datain_tr, dataou_tr), (datain_te, dataou_te) = tf.keras.datasets.cifar10.load_data()
     datain_tr, datain_vl, dataou_tr, dataou_vl = train_test_split(datain_tr, 
                                                                   dataou_tr, 
@@ -1485,7 +1497,14 @@ def fun_data_cifar10(file_path, validation_split = 0.05):
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
-    data             = fun_image_dimension_control(data)
+    if experiment_model == 'lenet': # this statement will be depreciated
+        # LeNet receives 32 by 32 inputs
+        # data  = fun_input_padding(data)
+        # expand image dimensions in necessary
+        data  = fun_image_dimension_control(data)
+
+    if experiment_model == 'ae':
+        data = fun_input_ravel(data)
 
     return data
 
@@ -1537,8 +1556,7 @@ def fun_data_autoencoder(data):
 
     return data
 
-def fun_loader_cifar10(file_path):
-
+def fun_loader_mnist(file_path, experiment_model = 'lenet'):
     data = np.load(file_path, allow_pickle=True).item()
     
     datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
@@ -1550,11 +1568,19 @@ def fun_loader_cifar10(file_path):
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
-    data             = fun_image_dimension_control(data)
+    if experiment_model == 'lenet':
+        # LeNet receives 32 by 32 inputs
+        data  = fun_input_padding(data)
+        # expand image dimensions in necessary
+        data  = fun_image_dimension_control(data)
 
+    if experiment_model == 'ae':
+        data = fun_input_ravel(data)
+    
     return data
 
-def fun_loader_mnist(file_path, model_type = 'lenet'):
+def fun_loader_cifar10(file_path, experiment_model = 'lenet'):
+
     data = np.load(file_path, allow_pickle=True).item()
     
     datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
@@ -1566,12 +1592,14 @@ def fun_loader_mnist(file_path, model_type = 'lenet'):
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
-    # LeNet receives 32 by 32 inputs
-    if model_type == 'lenet':
-        data  = fun_input_padding(data)
+    if experiment_model == 'lenet': # this statement will be depreciated
+        # LeNet receives 32 by 32 inputs
+        # data  = fun_input_padding(data)
+        # expand image dimensions in necessary
+        data  = fun_image_dimension_control(data)
 
-    data             = fun_image_dimension_control(data)
-    
+    if experiment_model == 'ae':
+        data = fun_input_ravel(data)
 
     return data
 
@@ -1771,11 +1799,6 @@ def fun_model_electrical_stability_fcnet(opt):
     
     model.summary() # can be depreciated
 
-    print(opt['config']['optimizer']['original'])
-    print(opt['config']['loss'])
-    print(opt['config']['metrics'])
-    print(opt['config']['optimizer']['original'].lr)
-
     model.fit(opt['data']['datain_tr'],
               opt['data']['dataou_tr'],
               epochs          = opt['config']['epochs']['original'],
@@ -1907,29 +1930,283 @@ def fun_model_cifar10_modified_lenet(opt):
 
     return model
 
-# def fun_model_x_ray_vgg16(opt):
-#     return model
+def fun_model_x_ray_modified_lenet(opt):
+    # build, fit, and save the model
+    shapein = opt['data']['datain_tr'].shape[1:]
+    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
 
-# def fun_mnist_hepex_ae1(opt):
-#     return model
+    #LeNet: LeCun, Y., Bottou, L., Bengio, Y., & Haffner, P. (1998). Gradient-based learning applied to document recognition. Proceedings of the IEEE, 86(11), 2278-2324.
 
-# def fun_mnist_hepex_ae2(opt):
-#     return model
+    inputs  = tf.keras.Input(shapein)
 
-# def fun_mnist_hepex_ae3(opt):
-#     return model
+    x       = tf.keras.layers.Conv2D(16, 5)          (inputs)
+    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = tf.keras.layers.BatchNormalization()   (x)
+    x       = tf.keras.layers.MaxPooling2D(2)        (x)
+    x       = tf.keras.layers.Dropout(0.25)          (x)   
 
-# def fun_cifar10_hepex_ae1(opt):
-#     return model
 
-# def fun_cifar10_hepex_ae2(opt):
-#     return model
+    x       = tf.keras.layers.Conv2D(128, 5)         (x)
+    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = tf.keras.layers.BatchNormalization()   (x)
+    x       = tf.keras.layers.MaxPooling2D(2)        (x)
+    x       = tf.keras.layers.Dropout(0.25)          (x)  
 
-# def fun_cifar10_hepex_ae3(opt):
-#     return model
+    x       = tf.keras.layers.Conv2D(2048, 5)        (x)
+    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = tf.keras.layers.Flatten()              (x)
+    x       = tf.keras.layers.Dropout(0.25)          (x) 
+
+    x       = tf.keras.layers.Dense(1024)            (x)
+    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = tf.keras.layers.Dropout(0.25)          (x) 
+
+    outputs = tf.keras.layers.Dense(units = shapeou) (x)
+    
+    model = tf.keras.Model(inputs, outputs)
+    model.compile(optimizer = opt['config']['optimizer']['original'], 
+                  loss      = opt['config']['loss'],
+                  metrics   = opt['config']['metrics'])
+    
+    model.summary() # can be depreciated
+
+    print(opt['config']['optimizer']['original'])
+    print(opt['config']['loss'])
+    print(opt['config']['metrics'])
+    print(opt['config']['optimizer']['original'].lr)
+
+    model.fit(opt['data']['datain_tr'],
+              opt['data']['dataou_tr'],
+              epochs          = opt['config']['epochs']['original'],
+              callbacks       = opt['config']['callbacks'],
+              validation_data = (opt['data']['datain_vl'], opt['data']['dataou_vl']),
+              batch_size      = opt['config']['batch_size'],
+              verbose         = opt['verbose']['original'],
+              validation_freq = 1)
+    
+    model.save(opt['files']['original'], 
+               overwrite         = True, 
+               include_optimizer = False)
+    
+    
+    return model
+
+def fun_model_mnist_hepex_ae1(opt):
+    # build, fit, and save the model
+    shapein = opt['data']['datain_tr'].shape[1:]
+    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+
+    inputs  = tf.keras.Input(shapein)
+
+    x       = tf.keras.layers.Dense(32)      (inputs)
+    x       = tf.keras.layers.ReLU()         (x)
+
+    outputs = tf.keras.layers.Dense(shapeou) (x)
+
+    
+    model = tf.keras.Model(inputs, outputs)
+    model.compile(optimizer = opt['config']['optimizer']['original'], 
+                  loss      = opt['config']['loss'],
+                  metrics   = opt['config']['metrics'])
+    
+    model.summary() # can be depreciated
+
+    model.fit(opt['data']['datain_tr'],
+              opt['data']['dataou_tr'],
+              epochs          = opt['config']['epochs']['original'],
+              callbacks       = opt['config']['callbacks'],
+              validation_data = (opt['data']['datain_vl'], opt['data']['dataou_vl']),
+              batch_size      = opt['config']['batch_size'],
+              verbose         = opt['verbose']['original'],
+              validation_freq = 1)
+    
+    model.save(opt['files']['original'], 
+               overwrite         = True, 
+               include_optimizer = False)
+
+    return model
+
+def fun_model_mnist_hepex_ae2(opt):
+    # build, fit, and save the model
+    shapein = opt['data']['datain_tr'].shape[1:]
+    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+
+    inputs  = tf.keras.Input(shapein)
+
+    x       = tf.keras.layers.Dense(64)      (inputs)
+    x       = tf.keras.layers.ReLU()         (x)
+
+    outputs = tf.keras.layers.Dense(shapeou) (x)
+
+    
+    model = tf.keras.Model(inputs, outputs)
+    model.compile(optimizer = opt['config']['optimizer']['original'], 
+                  loss      = opt['config']['loss'],
+                  metrics   = opt['config']['metrics'])
+    
+    model.summary() # can be depreciated
+
+    model.fit(opt['data']['datain_tr'],
+              opt['data']['dataou_tr'],
+              epochs          = opt['config']['epochs']['original'],
+              callbacks       = opt['config']['callbacks'],
+              validation_data = (opt['data']['datain_vl'], opt['data']['dataou_vl']),
+              batch_size      = opt['config']['batch_size'],
+              verbose         = opt['verbose']['original'],
+              validation_freq = 1)
+    
+    model.save(opt['files']['original'], 
+               overwrite         = True, 
+               include_optimizer = False)
+
+    return model
+
+def fun_model_mnist_hepex_ae3(opt):
+    # build, fit, and save the model
+    shapein = opt['data']['datain_tr'].shape[1:]
+    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+
+    inputs  = tf.keras.Input(shapein)
+
+    x       = tf.keras.layers.Dense(64)      (inputs)
+    x       = tf.keras.layers.ReLU()         (x)
+    x       = tf.keras.layers.Dense(32)      (x)
+    x       = tf.keras.layers.ReLU()         (x)
+    x       = tf.keras.layers.Dense(64)      (x)
+    x       = tf.keras.layers.ReLU()         (x)
+
+    outputs = tf.keras.layers.Dense(shapeou) (x)
+    
+    model = tf.keras.Model(inputs, outputs)
+    model.compile(optimizer = opt['config']['optimizer']['original'], 
+                  loss      = opt['config']['loss'],
+                  metrics   = opt['config']['metrics'])
+    
+    model.summary() # can be depreciated
+
+    model.fit(opt['data']['datain_tr'],
+              opt['data']['dataou_tr'],
+              epochs          = opt['config']['epochs']['original'],
+              callbacks       = opt['config']['callbacks'],
+              validation_data = (opt['data']['datain_vl'], opt['data']['dataou_vl']),
+              batch_size      = opt['config']['batch_size'],
+              verbose         = opt['verbose']['original'],
+              validation_freq = 1)
+    
+    model.save(opt['files']['original'], 
+               overwrite         = True, 
+               include_optimizer = False)
+    return model
+
+def fun_model_cifar10_hepex_ae1(opt):
+    # build, fit, and save the model
+    shapein = opt['data']['datain_tr'].shape[1:]
+    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+
+    inputs  = tf.keras.Input(shapein)
+
+    x       = tf.keras.layers.Dense(32)      (inputs)
+    x       = tf.keras.layers.ReLU()         (x)
+
+    outputs = tf.keras.layers.Dense(shapeou) (x)
+
+    
+    model = tf.keras.Model(inputs, outputs)
+    model.compile(optimizer = opt['config']['optimizer']['original'], 
+                  loss      = opt['config']['loss'],
+                  metrics   = opt['config']['metrics'])
+    
+    model.summary() # can be depreciated
+
+    model.fit(opt['data']['datain_tr'],
+              opt['data']['dataou_tr'],
+              epochs          = opt['config']['epochs']['original'],
+              callbacks       = opt['config']['callbacks'],
+              validation_data = (opt['data']['datain_vl'], opt['data']['dataou_vl']),
+              batch_size      = opt['config']['batch_size'],
+              verbose         = opt['verbose']['original'],
+              validation_freq = 1)
+    
+    model.save(opt['files']['original'], 
+               overwrite         = True, 
+               include_optimizer = False)
+
+    return model
+
+def fun_model_cifar10_hepex_ae2(opt):
+    # build, fit, and save the model
+    shapein = opt['data']['datain_tr'].shape[1:]
+    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+
+    inputs  = tf.keras.Input(shapein)
+
+    x       = tf.keras.layers.Dense(64)      (inputs)
+    x       = tf.keras.layers.ReLU()         (x)
+
+    outputs = tf.keras.layers.Dense(shapeou) (x)
+
+    
+    model = tf.keras.Model(inputs, outputs)
+    model.compile(optimizer = opt['config']['optimizer']['original'], 
+                  loss      = opt['config']['loss'],
+                  metrics   = opt['config']['metrics'])
+    
+    model.summary() # can be depreciated
+
+    model.fit(opt['data']['datain_tr'],
+              opt['data']['dataou_tr'],
+              epochs          = opt['config']['epochs']['original'],
+              callbacks       = opt['config']['callbacks'],
+              validation_data = (opt['data']['datain_vl'], opt['data']['dataou_vl']),
+              batch_size      = opt['config']['batch_size'],
+              verbose         = opt['verbose']['original'],
+              validation_freq = 1)
+    
+    model.save(opt['files']['original'], 
+               overwrite         = True, 
+               include_optimizer = False)
+
+    return model
+
+def fun_model_cifar10_hepex_ae3(opt):
+    # build, fit, and save the model
+    shapein = opt['data']['datain_tr'].shape[1:]
+    shapeou = np.unique(opt['data']['dataou_tr']).shape[0]
+
+    inputs  = tf.keras.Input(shapein)
+
+    x       = tf.keras.layers.Dense(64)      (inputs)
+    x       = tf.keras.layers.ReLU()         (x)
+    x       = tf.keras.layers.Dense(32)      (x)
+    x       = tf.keras.layers.ReLU()         (x)
+    x       = tf.keras.layers.Dense(64)      (x)
+    x       = tf.keras.layers.ReLU()         (x)
+
+    outputs = tf.keras.layers.Dense(shapeou) (x)
+    
+    model = tf.keras.Model(inputs, outputs)
+    model.compile(optimizer = opt['config']['optimizer']['original'], 
+                  loss      = opt['config']['loss'],
+                  metrics   = opt['config']['metrics'])
+    
+    model.summary() # can be depreciated
+
+    model.fit(opt['data']['datain_tr'],
+              opt['data']['dataou_tr'],
+              epochs          = opt['config']['epochs']['original'],
+              callbacks       = opt['config']['callbacks'],
+              validation_data = (opt['data']['datain_vl'], opt['data']['dataou_vl']),
+              batch_size      = opt['config']['batch_size'],
+              verbose         = opt['verbose']['original'],
+              validation_freq = 1)
+    
+    model.save(opt['files']['original'], 
+               overwrite         = True, 
+               include_optimizer = False)
+    return model
 
 '''
-INITIATE
+INITIATE AND CONCLUDE
 '''
 
 def fun_initiate(args):
@@ -2015,15 +2292,19 @@ def fun_initiate(args):
     opt['verbose']['hefriendly']['actn'] = 1
     opt['verbose']['pruned']['pruning']  = 1
     opt['verbose']['pruned']['culling']  = 1
+    
 
     # get the data and config
+    if '_lenet' in experiment.lower():
+        experiment_model = 'lenet'
+
+    if '_ae' in experiment.lower():
+        experiment_model = 'ae'
+
     if 'mnist' in experiment.lower():
-       if 'lenet' in experiment.lower():
-           opt['data']  = fun_data_mnist(opt['files']['data'], model_type='lenet')
-       else:
-           opt['data']  = fun_data_mnist(opt['files']['data'], model_type='ae')    
+        opt['data']  = fun_data_mnist(opt['files']['data'], experiment_model = experiment_model)
     elif 'cifar10' in experiment.lower():
-        opt['data'] = fun_data_cifar10(opt['files']['data'])
+        opt['data'] = fun_data_cifar10(opt['files']['data'], experiment_model = experiment_model)
     elif 'electrical' in experiment.lower():
         opt['data'] = fun_data_electrical_stability(opt['files']['data'])
     elif 'custom' in experiment.lower():
@@ -2119,6 +2400,10 @@ def fun_conclude(opt):
     print(" ")
     print("-------------------------------------------------------------------------------------------------------------------------")
     print(" ")
+
+'''
+MAIN
+'''
 
 def main():
     parser = argparse.ArgumentParser(prog        = 'main_mlsurgery',
@@ -2248,7 +2533,6 @@ def main():
     opt    = my_obj.run()
 
     fun_conclude(opt)
-
 
 if __name__ == '__main__':
     main()
