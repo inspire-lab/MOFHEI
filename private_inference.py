@@ -27,28 +27,34 @@ model_configs = {
         'task': 'classification'
     },
     'mnist-hepex-ae1': {
-        'dataset': 'cifar10',
-        'task': 'regression'
+        'dataset': 'mnist',
+        'task': 'regression',
+        'model_type': 'ae'
     },
     'mnist-hepex-ae2': {
-        'dataset': 'cifar10',
-        'task': 'regression'
+        'dataset': 'mnist',
+        'task': 'regression',
+        'model_type': 'ae'
     },
     'mnist-hepex-ae3': {
-        'dataset': 'cifar10',
-        'task': 'regression'
+        'dataset': 'mnist',
+        'task': 'regression',
+        'model_type': 'ae'
     },
     'cifar10-hepex-ae1': {
         'dataset': 'cifar10',
-        'task': 'regression'
+        'task': 'regression',
+        'model_type': 'ae'
     },
     'cifar10-hepex-ae2': {
         'dataset': 'cifar10',
-        'task': 'regression'
+        'task': 'regression',
+        'model_type': 'ae'
     },
     'cifar10-hepex-ae3': {
         'dataset': 'cifar10',
-        'task': 'regression'
+        'task': 'regression',
+        'model_type': 'ae'
     }
 }
 
@@ -62,6 +68,24 @@ crypto_configs = {
         ],
         'scale': 30.0,
         'multiplicative_depth': 19
+    },
+    'mnist-hepex-ae1': {  # depth esititmate: 4
+        'poly_modulus_degree': 8192,
+        'coeff_modulus': [40, 30, 30, 30, 30, 40],
+        'scale': 30.0,
+        'multiplicative_depth': 4
+    },
+    'mnist-hepex-ae2': {  # depth esititmate: 4
+        'poly_modulus_degree': 8192,
+        'coeff_modulus': [40, 30, 30, 30, 30, 40],
+        'scale': 30.0,
+        'multiplicative_depth': 4
+    },
+    'mnist-hepex-ae3': {  # depth esititmate: 10
+        'poly_modulus_degree': 16384,
+        'coeff_modulus': [40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40],
+        'scale': 30.0,
+        'multiplicative_depth': 10
     },
     'cifar10': {  # depth esititmate: 25
         'poly_modulus_degree': 32768,
@@ -86,7 +110,19 @@ parser = argparse.ArgumentParser(
     'Runs the pruned model by default. use -O to run the he-friendly'
     'pre-pruning model')
 
-parser.add_argument('model', help='Name of model', choices=model_configs.keys())
+group = parser.add_argument_group('model and dataset selection')
+group.add_argument('model', help='Name of model', choices=model_configs.keys())
+group.add_argument(
+    '-s',
+    '--sparsity',
+    type=int,
+    default=50,
+    help='Sparsity percentage. Defaults to 50. Ignored when -O is set')
+group.add_argument('-O',
+                   '--original',
+                   action='store_true',
+                   help='run he-friendly unpruned model instead')
+
 parser.add_argument('-v',
                     '--verbose',
                     action='store_true',
@@ -100,10 +136,7 @@ parser.add_argument('-i',
                     '--model_info',
                     action='store_true',
                     help='only display model info and architecture')
-parser.add_argument('-O',
-                    '--original',
-                    action='store_true',
-                    help='run he-friendly unpruned model instead')
+
 parser.add_argument('-q',
                     '--quiet',
                     action='store_true',
@@ -200,11 +233,14 @@ if args.log_memory or args.log_memory_history:
   logger = MemoryLogger(log_history=args.log_memory_history)
   logger.start()
 
-base_dir = model_name
+base_dir = 'experiment_' + model_name
 if args.original:
   model_file = os.path.join(base_dir, 'hefriendly', 'model.h5')
+  result_dict['sparsity'] = 0
 else:
-  model_file = os.path.join(base_dir, 'pruned', 'model.h5')
+  sparsity = args.sparsity
+  model_file = os.path.join(base_dir, 'pruned', f'model_{sparsity}.h5')
+  result_dict['sparsity'] = sparsity
 result_dict['config']['model_file'] = model_file
 
 
@@ -228,7 +264,7 @@ data_file = os.path.join(base_dir, 'data', 'data.npy')
 
 if data_set == 'mnist':
   data = fun_loader_mnist(
-      data_file, model_type=model_configs[model_name].get('model_type'))
+      data_file, experiment_model=model_configs[model_name].get('model_type'))
 elif data_set == 'cifar10':
   data = fun_loader_cifar10(data_file)
 elif data_set == 'electrical-stability':
@@ -333,7 +369,6 @@ y_pi = context.decrypt_double(result_ctxt[0])
 end = time.time()
 result_dict['decryption'] = end - start
 print(' done. {:.2f}seconds'.format(end - start))
-print(y_pi.shape, y_test.shape)
 
 # bring the output data into the the correct form. we assume that this
 # calssifaciotn and y contains labels
@@ -352,7 +387,7 @@ end = time.time()
 result_dict['plain_inference'] = end - start
 print(' done. {:.2f}seconds'.format(end - start))
 
-if model_configs[model_name]['problem'] == 'classification':
+if model_configs[model_name]['task'] == 'classification':
   # compute plain and encyrpted accuracy
   acc_plain = np.sum(
       np.argmax(y_plain, axis=1) == y_test[:n_slots]) / len(y_plain)
@@ -367,7 +402,7 @@ if model_configs[model_name]['problem'] == 'classification':
   print(f'error introduced by encryption: {error}')
   result_dict['encyrption_error'] = error
 else:
-  y_batch = y_test[:n_slots]
+  y_batch = x_test[:n_slots]
   mse_plain = mean_squared_error(y_batch, y_plain)
   mse_pi = mean_squared_error(y_batch, y_pi)
   result_dict['plain_performance'] = mse_plain
@@ -387,7 +422,7 @@ result_dict.update(history)
 # format it nicely and write it to file:
 now = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 
-model_type = 'hefriendly' if args.original else 'pruned'
+model_type = 'hefriendly_' if args.original else 'pruned_' + str(args.sparsity)
 dict_string = json.dumps(result_dict, indent=2)
 
 file_name = os.path.join(base_dir, 'results', model_type + '_' + now + '.json')
