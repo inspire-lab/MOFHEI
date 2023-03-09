@@ -47,7 +47,6 @@
 #                         Epoch frequency of pruning
 
 
-# ELECTRICAL-STABILITY-FCNet
 python3 main_mlsurgery.py 5 1 -MA False -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.50
 python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.55
 python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.60

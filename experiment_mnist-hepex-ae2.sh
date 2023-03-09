@@ -52,7 +52,6 @@
 #                         Epoch frequency of pruning
 
 
-#(6) MNIST-HEPEX-AE2 NIST-HEPEX-AE1
 python3 main_mlsurgery.py 6 1 -MA False -AD 0 -EO 30 -ET 50 -EF 50 -PE 10 -OE 10 -TS 0.50
 python3 main_mlsurgery.py 6 1 -MA True  -AD 0 -EO 30 -ET 50 -EF 50 -PE 10 -OE 10 -TS 0.55
 python3 main_mlsurgery.py 6 1 -MA True  -AD 0 -EO 30 -ET 50 -EF 50 -PE 10 -OE 10 -TS 0.60

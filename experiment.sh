@@ -48,4 +48,13 @@
 
 
 # ELECTRICAL-STABILITY-FCNet
-python3 main_mlsurgery.py 1 0 -MA True -EO 2 -ET 2 -EF 2 -OE 2 -TS 0.8
+python3 main_mlsurgery.py 5 1 -MA False -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.50
+python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.55
+python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.60
+python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.65
+python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.70
+python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.75
+python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.80
+python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.85
+python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.90
+python3 main_mlsurgery.py 5 1 -MA True  -AD 0 -EO 20 -ET 50 -EF 50 -PE 5 -OE 5 -TS 0.95
