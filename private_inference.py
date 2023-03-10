@@ -265,13 +265,34 @@ if args.model_info:
 # load data
 data_file = os.path.join(base_dir, 'data', 'data.npy')
 
+# let's have some fun with data loading
+# first we need to create an `opt` object to pass to the loading functions.
+# we do this by reading the relevant .sh script, take the command line arguments
+# and throw them in the argparser from MLsurgery
+
+# 1. read .sh file
+with open('experiment_' + model_name + '.sh') as f:
+  for line in f.readlines():
+    if line.startswith('python'):
+      break
+# 2. extract arguments
+mls_args = line.split()[2:]
+
+# 3. parse the mls arguments
+mls_args = fun_get_arg_parser().parse_args(mls_args)
+mls_args.model_available = 'True'
+
+# 4. create opt object
+mls_opt = fun_initiate(mls_args)
+
 if data_set == 'mnist':
-  data = fun_loader_mnist(
-      data_file, experiment_model=model_configs[model_name].get('model_type'))
+  data, _ = fun_loader_mnist(
+      mls_opt, experiment_model=model_configs[model_name].get('model_type'))
 elif data_set == 'cifar10':
-  data = fun_loader_cifar10(data_file)
+  data, _ = fun_loader_cifar10(
+      mls_opt, experiment_model=model_configs[model_name].get('model_type'))
 elif data_set == 'electrical-stability':
-  data = fun_loader_electrical_stability(data_file)
+  data, _ = fun_loader_electrical_stability(mls_opt)
 else:
   raise RuntimeError('unkown dataset ' + data_set)
 
