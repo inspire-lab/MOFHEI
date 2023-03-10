@@ -2348,22 +2348,23 @@ def fun_model_cifar10_hepex_ae6(opt):
 INITIATE AND CONCLUDE
 '''
 
+experiments = ['CUSTOM', 
+                'ELECTRICAL-STABILITY-FCNet', 
+                'MNIST-LeNet', 
+                'CIFAR10-Modified-LeNet',
+                'X-RAY-Modified-LeNet', 
+                'MNIST-HEPEX-AE1', 
+                'MNIST-HEPEX-AE2', 
+                'MNIST-HEPEX-AE3', 
+                'CIFAR10-HEPEX-AE1', 
+                'CIFAR10-HEPEX-AE2',
+                'CIFAR10-HEPEX-AE3']
+
 def fun_initiate(args):
     opt         = {}
     opt['args'] = args
 
-    experiments = ['CUSTOM', 
-                   'ELECTRICAL-STABILITY-FCNet', 
-                   'MNIST-LeNet', 
-                   'CIFAR10-Modified-LeNet',
-                   'X-RAY-Modified-LeNet', 
-                   'MNIST-HEPEX-AE1', 
-                   'MNIST-HEPEX-AE2', 
-                   'MNIST-HEPEX-AE3', 
-                   'CIFAR10-HEPEX-AE1', 
-                   'CIFAR10-HEPEX-AE2',
-                   'CIFAR10-HEPEX-AE3']
-    
+   
     # capture the experiment 
     experiment                          = experiments[int(args.experiment)]
 
@@ -2577,28 +2578,29 @@ def fun_conclude(opt):
     print("-------------------------------------------------------------------------------------------------------------------------")
     print(" ")
 
-'''
-MAIN
-'''
 
-def main():
+def fun_get_arg_parser():
     parser = argparse.ArgumentParser(prog        = 'main_mlsurgery',
                                     description = '** Version 202303011200 ** | Run MLSurgery Paper Experiment of Interest')
 
-    parser.add_argument('experiment',
-                        help    = '''Select one of the following experiments (number) from MLSurgery paper: 
-                                    
-                                    (0) CUSTOM Model by User, 
-                                    (1) ELECTRICAL-STABILITY-FCNet, 
-                                    (2) MNIST-LeNet, 
-                                    (3) CIFAR10-Modified-LeNet,
-                                    (4) X-RAY-Modified-LeNet, 
-                                    (5) MNIST-HEPEX-AE1, 
-                                    (6) MNIST-HEPEX-AE2, 
-                                    (7) MNIST-HEPEX-AE3, 
-                                    (8) CIFAR10-HEPEX-AE4, 
-                                    (9) CIFAR10-HEPEX-AE5,
-                                    (10) CIFAR10-HEPEX-AE6 ||| 
+    # create list of experiments to insert into the help
+
+    exp_string = ''
+    many_spaces ='                                    '
+    for i, exp in enumerate(experiments):
+        if exp == 'CUSTOM':
+            exp = 'CUSTOM Model by User'
+        if i != len(experiments) -1 :
+            exp_string += many_spaces + f'({i}) ' + exp + ', \n'
+        else: 
+            exp_string += many_spaces + f'({i}) ' + exp + ' ||| \n'
+
+    experiment_help =               '''
+                                    Select one of the following experiments (number) from MLSurgery paper: 
+                                        
+'''
+    experiment_help +=               exp_string
+    experiment_help +=              '''
                                     If the custom model option (i.e., 0) is selected, the user 
                                     requires to have it saved at ./experiment_custom/original/model.h5, and 
                                     include a dictionary dataset at ./experiment_custom/original/data.npy
@@ -2609,7 +2611,10 @@ def main():
                                         'dataou_vl': A numpy array validation outputs (for classification: [0, 1, 2, ... ]), 
                                         'datain_te': A numpy array testing inputs,  
                                         'dataou_te': A numpy array testing outputs  (for classification: [0, 1, 2, ... ])
-                                    ''',
+                                    '''
+    print(experiment_help)
+    parser.add_argument('experiment',
+                        help    = experiment_help,
                         choices = [str(i0) for i0 in range(0,11,1)])
     
     parser.add_argument('problem_type',
@@ -2705,6 +2710,16 @@ def main():
                     default = '0',
                     help    = "Set the GPU id on multi-GPU systems | default is '0'")
 
+    return parser
+
+
+'''
+MAIN
+'''
+
+def main():
+
+    parser =  fun_get_arg_parser()
     args = parser.parse_args()
 
     if args.experiment == '0':
