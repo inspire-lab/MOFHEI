@@ -7,6 +7,7 @@ import requests
 import warnings
 import shutil
 import os
+import time
 
 import numpy                         as np
 import pandas                        as pd
@@ -768,7 +769,14 @@ class MLSurgery():
         pruning_params['pruning_schedule'] = tfmot.sparsity.keras.ConstantSparsity(target_sparsity = self.opt['target_sparsity'],
                                                                                    frequency       = self.opt['target_frequency'],
                                                                                    begin_step      = 0) 
-        
+
+        # pruning_params['pruning_schedule'] = tfmot.sparsity.keras.PolynomialDecay(initial_sparsity = 0, 
+        #                                                                           final_sparsity   = self.opt['target_sparsity'],
+        #                                                                           begin_step       = 0,
+        #                                                                           end_step         = 3,
+        #                                                                           power            = 3, 
+        #                                                                           frequency        = self.opt['target_frequency'])
+
         # gather info
         name                             = layer.name
         info[name]                       = {}
@@ -801,6 +809,14 @@ class MLSurgery():
         pruning_params['pruning_schedule'] = tfmot.sparsity.keras.ConstantSparsity(target_sparsity = self.opt['target_sparsity'],
                                                                                    frequency       = self.opt['target_frequency'],
                                                                                    begin_step      = 0) 
+
+        # pruning_params['pruning_schedule'] = tfmot.sparsity.keras.PolynomialDecay(initial_sparsity = 0, 
+        #                                                                           final_sparsity   = self.opt['target_sparsity'],
+        #                                                                           begin_step       = 0,
+        #                                                                           end_step         = 3,
+        #                                                                           power            = 3, 
+        #                                                                           frequency        = self.opt['target_frequency'])
+
         initial_biases     = layer.weights[1].numpy()
         initial_weights    = layer.weights[0].numpy()
 
@@ -1248,39 +1264,47 @@ class MLSurgery():
         else:
             msm_name = 'MSE'
 
-        print("Experiment {} | {} of The Original Model for Testing Data: {}".format(self.opt['experiment'], msm_name, self.opt['results']['original']['te']))
+        print("Experiment {} | Layer Sparsity {} | {} of The Original Model for Testing Data: {:2.7f}".format(self.opt['experiment'], 
+                                                                                                              self.opt['target_sparsity'], 
+                                                                                                              msm_name, 
+                                                                                                              self.opt['results']['original']['te']))
         print("-------------------------------------------------------------------------------------------------------------------------")
 
         if self.opt['hefriendly_stat']:
             
             print("Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | Start |")
 
+            start_time                              = time.time()
+            self.opt['training_time']['hefriendly'] = 0 
+
             if self.opt['skip']['pool']:
                 MLSurgery.fun_model_loading(self, name = 'hefriendly', subname = 'pool')
                 msm = self.temp_msm
             else:
                 msm = MLSurgery.fun_max2ave(self)
+                self.opt['training_time']['hefriendly'] = self.opt['training_time']['hefriendly'] + (time.time() - start_time)
+
                 MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'pool')
 
-            print("Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | End   | Testing {}: {}".format(msm_name, msm))
+            print("Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | End   | Testing {}: {:2.7f}".format(msm_name, msm))
 
-            print("Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | Start |")
+            print("Make The Model HE-Friendly | Converting Activations into Polynomials    | Start |")
 
-            
-
-
+            start_time = time.time()
             if self.opt['skip']['actn']:
                 MLSurgery.fun_model_loading(self, name = 'hefriendly', subname = 'actn')
                 msm = self.temp_msm
             else:
                 msm = MLSurgery.fun_activation2poly(self)
+                self.opt['training_time']['hefriendly'] = self.opt['training_time']['hefriendly'] + (time.time() - start_time)
+
                 MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'actn')
 
 
             msm = MLSurgery.fun_activation2poly(self)
             MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'actn')
 
-            print("Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | End   | Testing {}: {}".format(msm_name, msm))
+            print("Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | End   | Testing {}: {:2.7f}".format(msm_name, msm))
 
             MLSurgery.fun_model_saving(self, name = 'hefriendly')
 
@@ -1294,19 +1318,14 @@ class MLSurgery():
 
             print("Packing-Aware Pruning      | TF-Optimization                            | Start |")
 
+            start_time                          = time.time()
+
             msm = MLSurgery.fun_tfmot_prune(self, name)
-
-            #print("Packing-Aware Pruning      | TF-Optimization                            | End   | Validation {}: {}".format(msm_name, msm))
-
-            #print("Culling                    | Removing Filters and Weights               | Start |")
-
             msm = MLSurgery.fun_culling(self)
 
-            #print("Culling                    | Removing Filters and Weights               | End   | Validation {}: {}".format(msm_name, msm))
+            self.opt['training_time']['pruned'] = (time.time() - start_time)
 
-            #MLSurgery.fun_model_save(self, model, model_type = 'prunedandculled')
-
-            print("Packing-Aware Pruning      | TF-Optimization                            | End   | Testing {}: {}".format(msm_name, msm))
+            print("Packing-Aware Pruning      | TF-Optimization                            | End   | Testing {}: {:2.7f}".format(msm_name, msm))
             
             MLSurgery.fun_model_saving(self, name = 'pruned')
 
@@ -1386,7 +1405,7 @@ def fun_image_calibration(datain_tr,
 def fun_nonimage_calibration(datain_tr, 
                               datain_vl,
                               datain_te,
-                              cond = False):
+                              cond = True):
     
     if cond:
         feature_range = (-1, 1)
@@ -1401,22 +1420,55 @@ def fun_nonimage_calibration(datain_tr,
 
     return datain_tr, datain_vl, datain_te
 
+def fun_image_normalization(data, opt):
+
+    # mean = np.mean(x_train)
+    # std = np.std(x_train)
+
+    # x_train = (x_train -mean) / std
+    # x_test = (x_test -mean) / std
+
+    #data['datain_tr'], data['datain_vl'], data['datain_te'] = data['datain_tr']/255, data['datain_vl']/255, data['datain_te']/255
+
+    opt['normalization']['std']  = np.std(np.concatenate([data['datain_tr'],  data['datain_vl']], axis = 0))
+    opt['normalization']['mean'] = np.mean(np.concatenate([data['datain_tr'],  data['datain_vl']], axis = 0))
+
+    if opt['normalization']['std'] > 0:
+        print('HERE &^%&^%&^%&^%&^%&^%&^%')
+        data['datain_tr'] = (data['datain_tr'] - opt['normalization']['mean'])/opt['normalization']['std']
+        data['datain_vl'] = (data['datain_vl'] - opt['normalization']['mean'])/opt['normalization']['std']
+        data['datain_te'] = (data['datain_te'] - opt['normalization']['mean'])/opt['normalization']['std']
+    
+    else:
+        data['datain_tr'] = (data['datain_tr'] - opt['normalization']['mean'])
+        data['datain_vl'] = (data['datain_vl'] - opt['normalization']['mean'])
+        data['datain_te'] = (data['datain_te'] - opt['normalization']['mean'])
+
+    return data, opt
+
+def fun_image_normalization_convert(data_case, opt):
+    return data_case * opt['normalization']['std'] + opt['normalization']['mean']
+
 '''
 -DATA
 '''
 
 def fun_reconstruction(opt, 
-                        data,
-                        name      = 'original',
-                        domain    = 'real', #recon
-                        data_type = 'tr',  
-                        num_h     = 10, 
-                        num_v     = 10):
+                       data,
+                       name      = 'original',
+                       domain    = 'real', #recon
+                       data_type = 'tr',  
+                       num_h     = 10, 
+                       num_v     = 10):
     
     if 'mnist' in opt['experiment'].lower():
         data = data.reshape((data.shape[0], 28, 28, 1 ))
     else:
         data = data.reshape((data.shape[0], 32, 32, 3 ))
+
+    if opt['data_processing_mode'] == 'normalization':
+       data = fun_image_normalization_convert(data, opt)
+
     
     filename = "AEs_{}_{}_{}.pdf".format(name, domain, data_type)
     path     = os.path.join(opt['path']['results'], 
@@ -1439,7 +1491,10 @@ def fun_reconstruction(opt,
 
         c_h = c_h + h
 
-    plt.imsave(path, img, cmap = 'gray', dpi = 600)
+    if 'mnist' in opt['experiment'].lower():
+        plt.imsave(path, img, cmap = 'gray', dpi = 600)
+    else:
+        plt.imsave(path, img, dpi = 600)
 
 def fun_input_ravel(data):
     
@@ -1486,7 +1541,8 @@ def fun_save_data(file_path,
 
     np.save(file_path, data)
 
-def fun_data_mnist(file_path, experiment_model = 'lenet', validation_split = 0.05):
+def fun_data_mnist(opt, experiment_model = 'lenet', validation_split = 0.05):
+
     (datain_tr, dataou_tr), (datain_te, dataou_te) = tf.keras.datasets.mnist.load_data()
     datain_tr, datain_vl, dataou_tr, dataou_vl = train_test_split(datain_tr, 
                                                                   dataou_tr, 
@@ -1494,7 +1550,7 @@ def fun_data_mnist(file_path, experiment_model = 'lenet', validation_split = 0.0
                                                                   random_state = np.random.randint(1000))
     
     # save a .npy version of the original no-calibrated data for offline runs
-    fun_save_data(file_path,
+    fun_save_data(opt['files']['data'],
                   datain_tr, 
                   dataou_tr, 
                   datain_vl, 
@@ -1502,18 +1558,21 @@ def fun_data_mnist(file_path, experiment_model = 'lenet', validation_split = 0.0
                   datain_te, 
                   dataou_te)
     
-    data = np.load(file_path, allow_pickle=True).item()
-    
-    datain_tr, datain_vl, datain_te = fun_image_calibration(datain_tr, 
-                                                            datain_vl,
-                                                            datain_te,
-                                                            cond = False)
-    
-    data['datain_tr'] = datain_tr
-    data['datain_vl'] = datain_vl
-    data['datain_te'] = datain_te
+    data = np.load(opt['files']['data'], allow_pickle=True).item()
 
+    if opt['data_processing_mode'] == 'calibration':
+        datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
+                                                                data['datain_vl'],
+                                                                data['datain_te'])
+        
+        data['datain_tr'] = datain_tr
+        data['datain_vl'] = datain_vl
+        data['datain_te'] = datain_te
 
+    else:
+        data, opt = fun_image_normalization(data, opt)
+    
+    
     if experiment_model == 'lenet':
         # LeNet receives 32 by 32 inputs
         data  = fun_input_padding(data)
@@ -1521,13 +1580,14 @@ def fun_data_mnist(file_path, experiment_model = 'lenet', validation_split = 0.0
 
     data  = fun_image_dimension_control(data)
 
-
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
 
-    return data
+    opt['data'] = data
+    return opt
     
-def fun_data_cifar10(file_path, experiment_model = 'lenet', validation_split = 0.05):
+def fun_data_cifar10(opt, experiment_model = 'lenet', validation_split = 0.05):
+
     (datain_tr, dataou_tr), (datain_te, dataou_te) = tf.keras.datasets.cifar10.load_data()
     datain_tr, datain_vl, dataou_tr, dataou_vl = train_test_split(datain_tr, 
                                                                   dataou_tr, 
@@ -1535,7 +1595,7 @@ def fun_data_cifar10(file_path, experiment_model = 'lenet', validation_split = 0
                                                                   random_state = np.random.randint(1000))
     
     # save a .npy version of the original no-calibrated data for offline runs
-    fun_save_data(file_path,
+    fun_save_data(opt['files']['data'],
                   datain_tr, 
                   dataou_tr, 
                   datain_vl, 
@@ -1543,63 +1603,73 @@ def fun_data_cifar10(file_path, experiment_model = 'lenet', validation_split = 0
                   datain_te, 
                   dataou_te)
     
-    data = np.load(file_path, allow_pickle=True).item()
-    
-    datain_tr, datain_vl, datain_te = fun_image_calibration(datain_tr, 
-                                                            datain_vl,
-                                                            datain_te,
-                                                            cond = False)
+    data = np.load(opt['files']['data'], allow_pickle=True).item()
 
-    data['datain_tr'] = datain_tr
-    data['datain_vl'] = datain_vl
-    data['datain_te'] = datain_te
+    if opt['data_processing_mode'] == 'calibration':
+        datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
+                                                                data['datain_vl'],
+                                                                data['datain_te'])
+        
+        data['datain_tr'] = datain_tr
+        data['datain_vl'] = datain_vl
+        data['datain_te'] = datain_te
+
+    else:
+        data, opt = fun_image_normalization(data, opt)
 
     data  = fun_image_dimension_control(data)
 
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
 
-    return data
+    opt['data'] = data
+    return opt
 
-def fun_data_electrical_stability(file_path, validation_split = 0.05):
+def fun_data_electrical_stability(opt, validation_split = 0.05):
     url = 'https://github.com/mhrafiei/data/raw/main/electrical_grid_stability_simulated_data.npy'
 
-    if not os.path.exists(file_path):
-        fun_download(url, file_path)
+    if not os.path.exists(opt['files']['data']):
+        fun_download(url, opt['files']['data'])
 
-    data = np.load(file_path, allow_pickle=True).item()
+    data = np.load(opt['files']['data'], allow_pickle=True).item()
+    
+    if opt['data_processing_mode'] == 'calibration':
+        datain_tr, datain_vl, datain_te = fun_nonimage_calibration(data['datain_tr'], 
+                                                                   data['datain_vl'],
+                                                                   data['datain_te'])
 
-    datain_tr, datain_vl, datain_te = fun_nonimage_calibration(data['datain_tr'], 
-                                                               data['datain_vl'],
-                                                               data['datain_te'],
-                                                               cond = False)
+        data['datain_tr'] = datain_tr
+        data['datain_vl'] = datain_vl
+        data['datain_te'] = datain_te
 
-    data['datain_tr'] = datain_tr
-    data['datain_vl'] = datain_vl
-    data['datain_te'] = datain_te
+    else:
+        data, opt = fun_image_normalization(data, opt)
 
+    opt['data'] = data
+    return opt
 
-    return data
-
-def fun_data_xray64(file_path):
+def fun_data_xray64(opt):
     url = 'https://github.com/mhrafiei/data/raw/main/xray.64.npy'
 
-    fun_download(url, file_path)
+    fun_download(url, opt['files']['data'])
 
-    data = np.load(file_path, allow_pickle=True).item()
+    data = np.load(opt['files']['data'], allow_pickle=True).item()
 
-    datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
-                                                            data['datain_vl'],
-                                                            data['datain_te'],
-                                                            cond = False)
+    if opt['data_processing_mode'] == 'calibration':
+        datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
+                                                                data['datain_vl'],
+                                                                data['datain_te'])
+        data['datain_tr'] = datain_tr
+        data['datain_vl'] = datain_vl
+        data['datain_te'] = datain_te
 
-    data['datain_tr'] = datain_tr
-    data['datain_vl'] = datain_vl
-    data['datain_te'] = datain_te
+    else:
+        data, opt = fun_image_normalization(data, opt)
 
     data              = fun_image_dimension_control(data)
 
-    return data
+    opt['data'] = data
+    return opt
 
 def fun_data_custom(file_path):
     return np.load(file_path, allow_pickle=True).item()
@@ -1611,17 +1681,20 @@ def fun_data_autoencoder(data):
 
     return data
 
-def fun_loader_mnist(file_path, experiment_model = 'lenet'):
-    data = np.load(file_path, allow_pickle=True).item()
+def fun_loader_mnist(opt, experiment_model = 'lenet'):
+    data = np.load(opt['files']['data'], allow_pickle=True).item()
     
-    datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
-                                                            data['datain_vl'],
-                                                            data['datain_te'],
-                                                            cond = False)
+    if opt['data_processing_mode'] == 'calibration':
+        datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
+                                                                data['datain_vl'],
+                                                                data['datain_te'])
+        data['datain_tr'] = datain_tr
+        data['datain_vl'] = datain_vl
+        data['datain_te'] = datain_te
 
-    data['datain_tr'] = datain_tr
-    data['datain_vl'] = datain_vl
-    data['datain_te'] = datain_te
+    else:
+        data, opt = fun_image_normalization(data, opt)
+
 
     data  = fun_image_dimension_control(data)
 
@@ -1633,43 +1706,61 @@ def fun_loader_mnist(file_path, experiment_model = 'lenet'):
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
     
-    return data
+    return data, opt
 
-def fun_loader_cifar10(file_path, experiment_model = 'lenet'):
+def fun_loader_cifar10(opt, experiment_model = 'lenet'):
 
-    data = np.load(file_path, allow_pickle=True).item()
+    data = np.load(opt['files']['data'], allow_pickle=True).item()
     
-    datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
-                                                            data['datain_vl'],
-                                                            data['datain_te'],
-                                                            cond = False)
+    if opt['data_processing_mode'] == 'calibration':
+        datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
+                                                                data['datain_vl'],
+                                                                data['datain_te'])
+        data['datain_tr'] = datain_tr
+        data['datain_vl'] = datain_vl
+        data['datain_te'] = datain_te
 
-    data['datain_tr'] = datain_tr
-    data['datain_vl'] = datain_vl
-    data['datain_te'] = datain_te
+    else:
+        data, opt = fun_image_normalization(data, opt)
 
     data  = fun_image_dimension_control(data)
 
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
 
-    return data
+    return data, opt
 
-def fun_loader_electrical_stability(file_path):
+def fun_loader_electrical_stability(opt):
 
-    data = np.load(file_path, allow_pickle=True).item()
+    data = np.load(opt['files']['data'], allow_pickle=True).item()
 
     datain_tr, datain_vl, datain_te = fun_nonimage_calibration(data['datain_tr'], 
                                                                data['datain_vl'],
-                                                               data['datain_te'],
-                                                               cond = False)
+                                                               data['datain_te'])
 
     data['datain_tr'] = datain_tr
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
-    return data
+    return data, opt
 
+def fun_loader_xray64(opt):
+    data = np.load(opt['files']['data'], allow_pickle=True).item()
+
+    if opt['data_processing_mode'] == 'calibration':
+        datain_tr, datain_vl, datain_te = fun_image_calibration(data['datain_tr'], 
+                                                                data['datain_vl'],
+                                                                data['datain_te'])
+        data['datain_tr'] = datain_tr
+        data['datain_vl'] = datain_vl
+        data['datain_te'] = datain_te
+
+    else:
+        data, opt = fun_image_normalization(data, opt)
+
+    data              = fun_image_dimension_control(data)
+
+    return data, opt
 
 '''
 -CONFIG
@@ -1908,11 +1999,6 @@ def fun_model_mnist_lenet(opt):
     
     model.summary() # can be depreciated
 
-    print(opt['config']['optimizer']['original'])
-    print(opt['config']['loss'])
-    print(opt['config']['metrics'])
-    print(opt['config']['optimizer']['original'].lr)
-
     model.fit(opt['data']['datain_tr'],
               opt['data']['dataou_tr'],
               epochs          = opt['config']['epochs']['original'],
@@ -1938,27 +2024,26 @@ def fun_model_cifar10_modified_lenet(opt):
 
     inputs  = tf.keras.Input(shapein)
 
-    x       = tf.keras.layers.Conv2D(16, 5)          (inputs)
+    x       = tf.keras.layers.Conv2D(20, 5)       (inputs)
     x       = tf.keras.layers.Activation('relu')     (x)
     x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
-    x       = tf.keras.layers.Dropout(0.25)          (x)   
+    x       = tf.keras.layers.Dropout(0.5)           (x)   
 
-
-    x       = tf.keras.layers.Conv2D(128, 5)         (x)
+    x       = tf.keras.layers.Conv2D(155, 5)         (x)
     x       = tf.keras.layers.Activation('relu')     (x)
     x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
-    x       = tf.keras.layers.Dropout(0.25)          (x)  
+    x       = tf.keras.layers.Dropout(0.5)           (x)  
 
     x       = tf.keras.layers.Conv2D(2048, 5)        (x)
     x       = tf.keras.layers.Activation('relu')     (x)
     x       = tf.keras.layers.Flatten()              (x)
-    x       = tf.keras.layers.Dropout(0.25)          (x) 
+    x       = tf.keras.layers.Dropout(0.5)           (x) 
 
-    x       = tf.keras.layers.Dense(1024)            (x)
+    x       = tf.keras.layers.Dense(2048)            (x)
     x       = tf.keras.layers.Activation('relu')     (x)
-    x       = tf.keras.layers.Dropout(0.25)          (x) 
+    x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     outputs = tf.keras.layers.Dense(units = shapeou) (x)
     
@@ -1968,11 +2053,6 @@ def fun_model_cifar10_modified_lenet(opt):
                   metrics   = opt['config']['metrics'])
     
     model.summary() # can be depreciated
-
-    print(opt['config']['optimizer']['original'])
-    print(opt['config']['loss'])
-    print(opt['config']['metrics'])
-    print(opt['config']['optimizer']['original'].lr)
 
     model.fit(opt['data']['datain_tr'],
               opt['data']['dataou_tr'],
@@ -1998,27 +2078,26 @@ def fun_model_x_ray_modified_lenet(opt):
 
     inputs  = tf.keras.Input(shapein)
 
-    x       = tf.keras.layers.Conv2D(16, 5)          (inputs)
+    x       = tf.keras.layers.Conv2D(16, 5,  2)      (inputs)
     x       = tf.keras.layers.Activation('relu')     (x)
     x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
-    x       = tf.keras.layers.Dropout(0.25)          (x)   
+    x       = tf.keras.layers.Dropout(0.5)           (x)   
 
-
-    x       = tf.keras.layers.Conv2D(128, 5)         (x)
+    x       = tf.keras.layers.Conv2D(155, 5)         (x)
     x       = tf.keras.layers.Activation('relu')     (x)
     x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
-    x       = tf.keras.layers.Dropout(0.25)          (x)  
+    x       = tf.keras.layers.Dropout(0.5)           (x)  
 
     x       = tf.keras.layers.Conv2D(2048, 5)        (x)
     x       = tf.keras.layers.Activation('relu')     (x)
     x       = tf.keras.layers.Flatten()              (x)
-    x       = tf.keras.layers.Dropout(0.25)          (x) 
+    x       = tf.keras.layers.Dropout(0.5)           (x) 
 
-    x       = tf.keras.layers.Dense(1024)            (x)
+    x       = tf.keras.layers.Dense(2048)            (x)
     x       = tf.keras.layers.Activation('relu')     (x)
-    x       = tf.keras.layers.Dropout(0.25)          (x) 
+    x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     outputs = tf.keras.layers.Dense(units = shapeou) (x)
     
@@ -2064,6 +2143,7 @@ def fun_model_mnist_hepex_ae1(opt):
 
     
     model = tf.keras.Model(inputs, outputs)
+
     model.compile(optimizer = opt['config']['optimizer']['original'], 
                   loss      = opt['config']['loss'],
                   metrics   = opt['config']['metrics'])
@@ -2157,7 +2237,7 @@ def fun_model_mnist_hepex_ae3(opt):
                include_optimizer = False)
     return model
 
-def fun_model_cifar10_hepex_ae1(opt):
+def fun_model_cifar10_hepex_ae4(opt):
     # build, fit, and save the model
     shapein = opt['data']['datain_tr'].shape[1:]
     shapeou = opt['data']['datain_tr'].shape[-1]
@@ -2192,7 +2272,7 @@ def fun_model_cifar10_hepex_ae1(opt):
 
     return model
 
-def fun_model_cifar10_hepex_ae2(opt):
+def fun_model_cifar10_hepex_ae5(opt):
     # build, fit, and save the model
     shapein = opt['data']['datain_tr'].shape[1:]
     shapeou = opt['data']['datain_tr'].shape[-1]
@@ -2227,7 +2307,7 @@ def fun_model_cifar10_hepex_ae2(opt):
 
     return model
 
-def fun_model_cifar10_hepex_ae3(opt):
+def fun_model_cifar10_hepex_ae6(opt):
     # build, fit, and save the model
     shapein = opt['data']['datain_tr'].shape[1:]
     shapeou = opt['data']['datain_tr'].shape[-1]
@@ -2294,6 +2374,7 @@ def fun_initiate(args):
     opt['target_frequency']             = int(args.target_frequency)
     opt['batch_size']                   = int(args.batch_size)
     opt['problem_type']                 = int(args.problem_type)
+    opt['data_processing_mode']         = args.data_processing_mode
 
     if args.hefriendly_stat == 'True':
         opt['hefriendly_stat'] = True
@@ -2337,11 +2418,17 @@ def fun_initiate(args):
     fun_create_path(opt['path']['temp']['pool'])
     fun_create_path(opt['path']['temp']['actn'])
 
-    # estimatio ndictionaries 
+    # estimation dictionaries 
     opt['estimations']               = {}
     opt['estimations']['original']   = {}
     opt['estimations']['hefriendly'] = {}
     opt['estimations']['pruned']     = {}
+
+    # time dictionary 
+    opt['training_time'] = {}
+
+    # normalization dictionary 
+    opt['normalization'] = {}
 
     # skip stat for debuging mode
     opt['skip']         = {}
@@ -2359,7 +2446,6 @@ def fun_initiate(args):
     opt['verbose']['pruned']['pruning']  = 0
     opt['verbose']['pruned']['culling']  = 0
     
-
     # get the data and config
     if '-lenet' in experiment.lower():
         experiment_model = 'lenet'
@@ -2368,18 +2454,17 @@ def fun_initiate(args):
         experiment_model = 'ae'
 
     if 'mnist' in experiment.lower():
-        opt['data']  = fun_data_mnist(opt['files']['data'], experiment_model = experiment_model)
+        opt = fun_data_mnist(opt, experiment_model = experiment_model)
     elif 'cifar10' in experiment.lower():
-        opt['data'] = fun_data_cifar10(opt['files']['data'], experiment_model = experiment_model)
+        opt = fun_data_cifar10(opt, experiment_model = experiment_model)
     elif 'electrical' in experiment.lower():
-        opt['data'] = fun_data_electrical_stability(opt['files']['data'])
+        opt = fun_data_electrical_stability(opt)
     elif 'x-ray' in experiment.lower():
-        opt['data'] = fun_data_xray64(opt['files']['data'])
+        opt = fun_data_xray64(opt)
     elif 'custom' in experiment.lower():
-        opt['data'] = fun_data_custom() # NEEDS TO BE UPDATED
+        opt = fun_data_custom() # NEEDS TO BE UPDATED
     else:
         assert False, 'Error! Read the guideline and double check the experiment information'
-
 
     if args.problem_type == '1':
         opt['data']   = fun_data_autoencoder(opt['data'])
@@ -2408,6 +2493,8 @@ def fun_initiate(args):
     opt['config']['callbacks_tfmot'] = opt['config']['callbacks_tfmot'] + [MyThresholdCallback(threshold = opt['results']['original']['vl'], 
                                                                                                problem   = opt['problem_type'],
                                                                                                monitor   = opt['config']['monitor'])]
+    
+
     return opt
 
 def fun_conclude(opt):
@@ -2447,11 +2534,11 @@ def fun_conclude(opt):
     if os.path.exists(opt['files']['results']):
         os.remove(opt['files']['results'])
 
-    result = '''Original Model:    \n\n{} Train: {} \n{} Val:   {} \n{} Test:  {}\n\nHE-Friendly Model: \n\n{} Train: {} \n{} Val:   {} \n{} Test:  {}\n\nPruned Model: \n\n{} Train: {} \n{}  Val:  {} \n{} Test:  {} \n\nFinal Sparsity: \n{}
+    result = '''Original Model:    \n\n{} Train: {} \n{} Val:   {} \n{} Test:  {}\n\nHE-Friendly Model: \n\n{} Train: {} \n{} Val:   {} \n{} Test:  {}\n\nPruned Model: \n\n{} Train: {} \n{}  Val:  {} \n{} Test:  {} \n\nFinal Sparsity: {} \n\nTime HE-Friendly Model: {} sec \n\nTime Pruned Model: {} sec
              '''.format(msm_name, opt['results']['original']['tr'],   msm_name, opt['results']['original']['vl'],   msm_name, opt['results']['original']['te'],
                         msm_name, opt['results']['hefriendly']['tr'], msm_name, opt['results']['hefriendly']['vl'], msm_name, opt['results']['hefriendly']['te'],
                         msm_name, opt['results']['pruned']['tr'],     msm_name, opt['results']['pruned']['vl'],     msm_name, opt['results']['pruned']['te'],
-                        final_sparsity)
+                        final_sparsity, opt['training_time']['hefriendly'],  opt['training_time']['pruned'])
     
     f = open(opt['files']['results'], "a")
     f.write(result)
@@ -2509,9 +2596,9 @@ def main():
                                     (5) MNIST-HEPEX-AE1, 
                                     (6) MNIST-HEPEX-AE2, 
                                     (7) MNIST-HEPEX-AE3, 
-                                    (8) CIFAR10-HEPEX-AE1, 
-                                    (9) CIFAR10-HEPEX-AE2,
-                                    (10) CIFAR10-HEPEX-AE3 ||| 
+                                    (8) CIFAR10-HEPEX-AE4, 
+                                    (9) CIFAR10-HEPEX-AE5,
+                                    (10) CIFAR10-HEPEX-AE6 ||| 
                                     If the custom model option (i.e., 0) is selected, the user 
                                     requires to have it saved at ./experiment_custom/original/model.h5, and 
                                     include a dictionary dataset at ./experiment_custom/original/data.npy
@@ -2608,6 +2695,11 @@ def main():
                         default = '100',
                         help    = "Epoch frequency of pruning")
 
+    parser.add_argument('-PR',
+                        '--data_processing_mode',
+                        default = 'calibration',
+                        help    = "Either 'calibration' or 'normalization' | default is calibration'")
+
     args = parser.parse_args()
 
     if args.experiment == '0':
@@ -2623,3 +2715,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
