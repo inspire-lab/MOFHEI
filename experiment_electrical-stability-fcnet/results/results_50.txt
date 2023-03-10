@@ -1,0 +1,24 @@
+Original Model:    
+
+ACC Train: 0.8645613789558411 
+ACC Val:   0.8533333539962769 
+ACC Test:  0.8539999723434448
+
+HE-Friendly Model: 
+
+ACC Train: 0.8534502983093262 
+ACC Val:   0.855555534362793 
+ACC Test:  0.8450000286102295
+
+Pruned Model: 
+
+ACC Train: 0.9010526537895203 
+ACC  Val:  0.8822222352027893 
+ACC Test:  0.8939999938011169 
+
+Final Sparsity: 0.0 
+
+Time HE-Friendly Model: 3.9598124027252197 sec 
+
+Time Pruned Model: 5.024592876434326 sec
+             
