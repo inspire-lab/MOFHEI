@@ -87,20 +87,23 @@ crypto_configs = {
         'scale': 30.0,
         'multiplicative_depth': 10
     },
-    'cifar10': {  # depth esititmate: 25
-        'poly_modulus_degree': 32768,
-        'coeff_modulus': [
-            40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-            30, 30, 30, 30, 30, 30, 30, 30, 30, 40
-        ],
+    'cifar10-hepex-ae1': {  # depth esititmate: 4
+        'poly_modulus_degree': 8192,
+        'coeff_modulus': [40, 30, 30, 30, 30, 40],
         'scale': 30.0,
-        'multiplicative_depth': 25
+        'multiplicative_depth': 4
     },
-    'electrical-stability-fcnet': {  # depth esititmate: 10
-        'poly_modulus_degree': 16384,
-        'coeff_modulus': [40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40],
+    'cifar10-hepex-ae2': {  # depth esititmate: 4
+        'poly_modulus_degree': 8192,
+        'coeff_modulus': [40, 30, 30, 30, 30, 40],
         'scale': 30.0,
-        'multiplicative_depth': 10
+        'multiplicative_depth': 4
+    },
+    'electrical-stability-fcnet': {  # depth esititmate: 7
+        'poly_modulus_degree': 16384,
+        'coeff_modulus': [40, 30, 30, 30, 30, 30, 30, 30, 40],
+        'scale': 30.0,
+        'multiplicative_depth': 7
     }
 }
 
