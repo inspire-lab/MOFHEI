@@ -2699,20 +2699,31 @@ def main():
                         '--data_processing_mode',
                         default = 'calibration',
                         help    = "Either 'calibration' or 'normalization' | default is calibration'")
+    
+    parser.add_argument('-GP',
+                    '--gpu_device_id',
+                    default = '0',
+                    help    = "Set the GPU id on multi-GPU systems | default is '0'")
 
     args = parser.parse_args()
 
     if args.experiment == '0':
         args.model_available='True'
 
-    opt    = fun_initiate(args)
+    #tf.debugging.set_log_device_placement(True)
 
-    my_obj = MLSurgery(opt)
+    try:
+        # Specify an invalid GPU device
+        with tf.device('/device:GPU:' + args.gpu_device_id):
+            opt    = fun_initiate(args)
+            my_obj = MLSurgery(opt)
+            opt    = my_obj.run()
+            
+            fun_conclude(opt)
 
-    opt    = my_obj.run()
-
-    fun_conclude(opt)
-
+    except RuntimeError as e:
+        print('HERE', e)
+    
 if __name__ == '__main__':
     main()
     
