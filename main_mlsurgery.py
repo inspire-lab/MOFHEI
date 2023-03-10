@@ -2612,7 +2612,6 @@ def fun_get_arg_parser():
                                         'datain_te': A numpy array testing inputs,  
                                         'dataou_te': A numpy array testing outputs  (for classification: [0, 1, 2, ... ])
                                     '''
-    print(experiment_help)
     parser.add_argument('experiment',
                         help    = experiment_help,
                         choices = [str(i0) for i0 in range(0,11,1)])
