@@ -1405,7 +1405,7 @@ def fun_image_calibration(datain_tr,
 def fun_nonimage_calibration(datain_tr, 
                               datain_vl,
                               datain_te,
-                              cond = True):
+                              cond = False):
     
     if cond:
         feature_range = (-1, 1)
@@ -2692,7 +2692,7 @@ def main():
 
     parser.add_argument('-TF',
                         '--target_frequency',
-                        default = '100',
+                        default = '5',
                         help    = "Epoch frequency of pruning")
 
     parser.add_argument('-PR',
