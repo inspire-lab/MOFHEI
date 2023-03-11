@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import time
+import itertools
 
 N_RUNS = 5
 
@@ -61,7 +62,7 @@ def run(experiment, sparsity):
 
 
 # check how many experiments we need to run
-experiments_to_run = []
+experiments_to_run = [[] for _ in range(N_RUNS)]
 for exp in experiments:
   exp_dir = 'experiment_' + exp
   results = os.listdir(os.path.join(exp_dir, 'results'))
@@ -73,8 +74,13 @@ for exp in experiments:
     if n <= 0:
       continue
     # append to the experiments to run
-    for _ in range(n):
-      experiments_to_run.append((exp, sparsity))
+    for i in range(n):
+      experiments_to_run[i].append((exp, sparsity))
+
+experiments_to_run = list(itertools.chain(*experiments_to_run))
+
+print(experiments_to_run)
+exit()
 
 # run experiments
 time_tracker = []
