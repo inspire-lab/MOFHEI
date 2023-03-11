@@ -55,6 +55,11 @@ model_configs = {
         'dataset': 'cifar10',
         'task': 'regression',
         'model_type': 'ae'
+    },
+    'cifar10-modified-lenet': {
+        'dataset': 'cifar10',
+        'task': 'regression',
+        'model_type': 'classification'
     }
 }
 
@@ -104,7 +109,16 @@ crypto_configs = {
         'coeff_modulus': [40, 30, 30, 30, 30, 30, 30, 30, 40],
         'scale': 30.0,
         'multiplicative_depth': 7
-    }
+    },
+    'cifar10-modified-lenet': {  # depth esititmate: 19
+      'poly_modulus_degree': 32768,
+      'coeff_modulus': [
+          40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+          30, 30, 30, 40
+      ],
+      'scale': 30.0,
+      'multiplicative_depth': 19
+   }
 }
 
 parser = argparse.ArgumentParser(
@@ -271,7 +285,7 @@ data_file = os.path.join(base_dir, 'data', 'data.npy')
 # and throw them in the argparser from MLsurgery
 
 # 1. read .sh file
-with open('experiment_' + model_name + '.sh') as f:
+with open('run_' + model_name + '.sh') as f:
   for line in f.readlines():
     if line.startswith('python'):
       break

@@ -38,9 +38,20 @@ def run(experiment, sparsity):
       '--count_operations',
       '--clear_memory'
   ]
-
-  completed = subprocess.run(args, capture_output=True, cwd=os.curdir)
+  try:
+    completed = subprocess.run(args, capture_output=True, cwd=os.curdir, check=True)
+  except subprocess.CalledProcessError as e:
+    print('experiment run failed')
+    print('call was:', e.cmd)
+    print('Process failed: \nstdout:')
+    print(e.stdout.decode())
+    print('stderr:')
+    print(e.stderr.decode())
+    print('exiting')
+    exit(1)
   if completed.returncode != 0:
+    print()
+    print('call was:' ' '.join(args))
     print('Process failed: \nstdout:')
     print(completed.stdout.decode())
     print('stderr:')
