@@ -69,7 +69,7 @@ crypto_configs = {
         'poly_modulus_degree': 32768,
         'coeff_modulus': [
             40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-            30, 30, 30, 40
+            30, 30, 30, 30, 30, 30, 30,30,30,30, 40
         ],
         'scale': 30.0,
         'multiplicative_depth': 19
@@ -284,8 +284,16 @@ data_file = os.path.join(base_dir, 'data', 'data.npy')
 # we do this by reading the relevant .sh script, take the command line arguments
 # and throw them in the argparser from MLsurgery
 
+# 0. check with sh files exist
+if os.path.exists('run_' + model_name + '.sh'):
+  sh_file_name = 'run_' + model_name + '.sh'
+elif os.path.exists('experiment_' + model_name + '.sh'):
+  sh_file_name = 'experiment_' + model_name + '.sh'
+else:
+  raise RuntimeError(f'can not find `{"run_" + model_name + ".sh"}` or `{"experiment__" + model_name + ".sh"}`')
+
 # 1. read .sh file
-with open('run_' + model_name + '.sh') as f:
+with open(sh_file_name) as f:
   for line in f.readlines():
     if line.startswith('python'):
       break
@@ -312,6 +320,7 @@ else:
 
 result_dict['config']['data_file'] = data_file
 x_test = data['datain_te']
+print(x_test.shape, type(x_test))
 if model_configs[model_name]['task'] == 'classification':
   y_test = data['dataou_te']
 else:

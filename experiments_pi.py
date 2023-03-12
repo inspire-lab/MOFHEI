@@ -39,6 +39,8 @@ def run(experiment, sparsity):
       '--count_operations',
       '--clear_memory'
   ]
+  sys.stdout.write(' cmd: ' + ' '.join(args)  )
+  sys.stdout.flush()
   try:
     completed = subprocess.run(args, capture_output=True, cwd=os.curdir, check=True)
   except subprocess.CalledProcessError as e:
@@ -74,13 +76,15 @@ for exp in experiments:
     if n <= 0:
       continue
     # append to the experiments to run
-    for i in range(n):
+    for i in range(N_RUNS-n, N_RUNS):
       experiments_to_run[i].append((exp, sparsity))
+
+#print(experiments_to_run)
+
 
 experiments_to_run = list(itertools.chain(*experiments_to_run))
 
-print(experiments_to_run)
-exit()
+#print(experiments_to_run)
 
 # run experiments
 time_tracker = []
@@ -92,12 +96,12 @@ for i, (exp, sparsity) in enumerate(experiments_to_run):
   else:
     # clear line
     avg_time = sum(time_tracker) / len(time_tracker)
-    time_remaining = avg_time * (len(experiments_to_run) - n)
+    time_remaining = avg_time * (len(experiments_to_run) - i)
     sys.stdout.write(
         '\r                                                                                 '
     )
     sys.stdout.write(
-        f'\rrunning: {exp} sparsity={sparsity} progress {i+1}/{len(experiments_to_run)}. estimated time remaining {int(time_remaining)}s'
+        f'\rrunning: {exp} sparsity={sparsity} progress {i+1}/{len(experiments_to_run)}. last run: {int(time_tracker[-1])} estimated time remaining {int(time_remaining)}s'
     )
   start = time.time()
   run(exp, sparsity)

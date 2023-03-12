@@ -1509,10 +1509,9 @@ def fun_input_ravel(data):
 def fun_input_padding(data, 
                       pad_values = [0,0], 
                       pad_size   = [2,2]):
-    
-    data['datain_tr'] = tf.pad(data['datain_tr'], [pad_values, pad_size, pad_size])
-    data['datain_vl'] = tf.pad(data['datain_vl'], [pad_values, pad_size, pad_size])
-    data['datain_te'] = tf.pad(data['datain_te'], [pad_values, pad_size, pad_size])
+    data['datain_tr'] = tf.pad(data['datain_tr'], [pad_values, pad_size, pad_size]).numpy()
+    data['datain_vl'] = tf.pad(data['datain_vl'], [pad_values, pad_size, pad_size]).numpy()
+    data['datain_te'] = tf.pad(data['datain_te'], [pad_values, pad_size, pad_size]).numpy()
 
     return data
 
@@ -1696,15 +1695,17 @@ def fun_loader_mnist(opt, experiment_model = 'lenet'):
         data, opt = fun_image_normalization(data, opt)
 
 
-    data  = fun_image_dimension_control(data)
 
     if experiment_model == 'lenet':
         # LeNet receives 32 by 32 inputs
         data  = fun_input_padding(data)
         # expand image dimensions in necessary
 
+    data  = fun_image_dimension_control(data)
+    
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
+        
     
     return data, opt
 
