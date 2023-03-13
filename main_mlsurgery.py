@@ -2025,13 +2025,13 @@ def fun_model_cifar10_modified_lenet(opt):
 
     x       = tf.keras.layers.Conv2D(20, 5)       (inputs)
     x       = tf.keras.layers.Activation('relu')     (x)
-    x       = tf.keras.layers.BatchNormalization()   (x)
+    #x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
     x       = tf.keras.layers.Dropout(0.5)           (x)   
 
     x       = tf.keras.layers.Conv2D(155, 5)         (x)
     x       = tf.keras.layers.Activation('relu')     (x)
-    x       = tf.keras.layers.BatchNormalization()   (x)
+    #x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
     x       = tf.keras.layers.Dropout(0.5)           (x)  
 
@@ -2041,7 +2041,7 @@ def fun_model_cifar10_modified_lenet(opt):
     x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     x       = tf.keras.layers.Dense(2048)            (x)
-    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = Square()                               (x)
     x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     outputs = tf.keras.layers.Dense(units = shapeou) (x)
@@ -2079,13 +2079,13 @@ def fun_model_x_ray_modified_lenet(opt):
 
     x       = tf.keras.layers.Conv2D(16, 5,  2)      (inputs)
     x       = tf.keras.layers.Activation('relu')     (x)
-    x       = tf.keras.layers.BatchNormalization()   (x)
+    #x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
     x       = tf.keras.layers.Dropout(0.5)           (x)   
 
     x       = tf.keras.layers.Conv2D(155, 5)         (x)
     x       = tf.keras.layers.Activation('relu')     (x)
-    x       = tf.keras.layers.BatchNormalization()   (x)
+    #x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
     x       = tf.keras.layers.Dropout(0.5)           (x)  
 
@@ -2095,7 +2095,7 @@ def fun_model_x_ray_modified_lenet(opt):
     x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     x       = tf.keras.layers.Dense(2048)            (x)
-    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = Square()                               (x)
     x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     outputs = tf.keras.layers.Dense(units = shapeou) (x)
