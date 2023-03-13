@@ -1,0 +1,167 @@
+{
+  "model": "cifar10-hepex-ae1",
+  "dataset": "cifar10",
+  "config": {
+    "model": "cifar10-hepex-ae1",
+    "sparsity": 90,
+    "original": false,
+    "verbose": false,
+    "extra_verbose": false,
+    "model_info": false,
+    "quiet": false,
+    "progress": false,
+    "clear_memory": true,
+    "parallel_encryption": true,
+    "log_memory": true,
+    "log_memory_history": false,
+    "count_operations": true,
+    "model_file": "experiment_cifar10-hepex-ae1/pruned/model_90.h5",
+    "data_file": "experiment_cifar10-hepex-ae1/data/data.npy"
+  },
+  "sparsity": 90,
+  "pruned": true,
+  "crypt_config": {
+    "poly_modulus_degree": 8192,
+    "coeff_modulus": [
+      40,
+      30,
+      30,
+      30,
+      30,
+      40
+    ],
+    "scale": 30.0,
+    "multiplicative_depth": 4
+  },
+  "context_creation": 0.03418922424316406,
+  "key_creation": 0.36376452445983887,
+  "batch_size": 0.36376452445983887,
+  "encryption": 3.97987699508667,
+  "private_inference": 8.869876146316528,
+  "max_memory": 10.829235076904297,
+  "decryption": 13.090538024902344,
+  "plain_inference": 0.20174837112426758,
+  "plain_performance": 0.03415202871739582,
+  "encrypted_performance": 0.03415203523478903,
+  "metric": "mse",
+  "encyrption_error": 1.6760000485999505e-10,
+  "hlos": [
+    {
+      "start": 1678640724.886075,
+      "op": "dot.8",
+      "before": {
+        "ctxt_ctxt_mulitplication": 0.0,
+        "ctxt_ptxt_mulitplication": 0.0,
+        "ctxt_ctxt_addition": 0.0,
+        "ctxt_ptxt_addition": 0.0
+      },
+      "end": 1678640731.0860083,
+      "after": {
+        "ctxt_ctxt_mulitplication": 0.0,
+        "ctxt_ptxt_mulitplication": 9216.0,
+        "ctxt_ctxt_addition": 9213.0,
+        "ctxt_ptxt_addition": 0.0
+      },
+      "time": 6.199933290481567,
+      "ctxt_ctxt_mulitplication": 0.0,
+      "ctxt_ptxt_mulitplication": 9216.0,
+      "ctxt_ctxt_addition": 9213.0,
+      "ctxt_ptxt_addition": 0.0
+    },
+    {
+      "start": 1678640731.0871608,
+      "op": "add.11",
+      "before": {
+        "ctxt_ctxt_mulitplication": 0.0,
+        "ctxt_ptxt_mulitplication": 9216.0,
+        "ctxt_ctxt_addition": 9213.0,
+        "ctxt_ptxt_addition": 0.0
+      },
+      "end": 1678640731.1071332,
+      "after": {
+        "ctxt_ctxt_mulitplication": 0.0,
+        "ctxt_ptxt_mulitplication": 9216.0,
+        "ctxt_ctxt_addition": 9213.0,
+        "ctxt_ptxt_addition": 3.0
+      },
+      "time": 0.01997232437133789,
+      "ctxt_ctxt_mulitplication": 0.0,
+      "ctxt_ptxt_mulitplication": 0.0,
+      "ctxt_ctxt_addition": 0.0,
+      "ctxt_ptxt_addition": 3.0
+    },
+    {
+      "start": 1678640731.1071725,
+      "op": "multiply.12",
+      "before": {
+        "ctxt_ctxt_mulitplication": 0.0,
+        "ctxt_ptxt_mulitplication": 9216.0,
+        "ctxt_ctxt_addition": 9213.0,
+        "ctxt_ptxt_addition": 3.0
+      },
+      "end": 1678640731.125166,
+      "after": {
+        "ctxt_ctxt_mulitplication": 3.0,
+        "ctxt_ptxt_mulitplication": 9216.0,
+        "ctxt_ctxt_addition": 9213.0,
+        "ctxt_ptxt_addition": 3.0
+      },
+      "time": 0.017993450164794922,
+      "ctxt_ctxt_mulitplication": 3.0,
+      "ctxt_ptxt_mulitplication": 0.0,
+      "ctxt_ctxt_addition": 0.0,
+      "ctxt_ptxt_addition": 0.0
+    },
+    {
+      "start": 1678640731.1253297,
+      "op": "dot.13",
+      "before": {
+        "ctxt_ctxt_mulitplication": 3.0,
+        "ctxt_ptxt_mulitplication": 9216.0,
+        "ctxt_ctxt_addition": 9213.0,
+        "ctxt_ptxt_addition": 3.0
+      },
+      "end": 1678640731.6000962,
+      "after": {
+        "ctxt_ctxt_mulitplication": 3.0,
+        "ctxt_ptxt_mulitplication": 18432.0,
+        "ctxt_ctxt_addition": 15357.0,
+        "ctxt_ptxt_addition": 3.0
+      },
+      "time": 0.47476649284362793,
+      "ctxt_ctxt_mulitplication": 0.0,
+      "ctxt_ptxt_mulitplication": 9216.0,
+      "ctxt_ctxt_addition": 6144.0,
+      "ctxt_ptxt_addition": 0.0
+    },
+    {
+      "start": 1678640732.0077739,
+      "op": "add.16",
+      "before": {
+        "ctxt_ctxt_mulitplication": 3.0,
+        "ctxt_ptxt_mulitplication": 18432.0,
+        "ctxt_ctxt_addition": 15357.0,
+        "ctxt_ptxt_addition": 3.0
+      },
+      "end": 1678640733.1803982,
+      "after": {
+        "ctxt_ctxt_mulitplication": 3.0,
+        "ctxt_ptxt_mulitplication": 18432.0,
+        "ctxt_ctxt_addition": 15357.0,
+        "ctxt_ptxt_addition": 3075.0
+      },
+      "time": 1.1726243495941162,
+      "ctxt_ctxt_mulitplication": 0.0,
+      "ctxt_ptxt_mulitplication": 0.0,
+      "ctxt_ctxt_addition": 0.0,
+      "ctxt_ptxt_addition": 3072.0
+    }
+  ],
+  "start_time": "2023-03-12-17-05-24",
+  "end_time": "2023-03-12-17-05-24",
+  "total_ctxt_ctxt_mulitplication": 3.0,
+  "total_ctxt_ptxt_mulitplication": 18432.0,
+  "total_ctxt_ctxt_addition": 15357.0,
+  "total_ctxt_ptxt_addition": 3075.0,
+  "total_ciphertext_operations": 36867.0
+}
