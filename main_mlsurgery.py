@@ -428,7 +428,7 @@ class MLSurgery():
             df['trainable'].append(layer.trainable)
             df['num_param'].append(int(sum([tf.reduce_prod(weight.shape) for weight in layer.weights if weight.trainable])))
 
-            if ('relu' in df['type'][-1].lower()) or ('activation' in df['type'][-1].lower()):
+            if ('relu' in df['type'][-1].lower()) or ('activation' in df['type'][-1].lower()) and ('square' not in df['name'][-1].lower()):
                 df['actn'].append(True)
             else:
                 df['actn'].append(False)
@@ -1977,21 +1977,19 @@ def fun_model_mnist_lenet(opt):
     x       = tf.keras.layers.Conv2D(6, 5)           (inputs)
     x       = tf.keras.layers.Activation('tanh')     (x)
     x       = tf.keras.layers.AveragePooling2D(2)    (x)
-    x       = tf.keras.layers.Activation('sigmoid')  (x)
 
     x       = tf.keras.layers.Conv2D(16, 5)          (x)
     x       = tf.keras.layers.Activation('tanh')     (x)
     x       = tf.keras.layers.AveragePooling2D(2)    (x)
-    x       = tf.keras.layers.Activation('sigmoid')  (x)
 
     x       = tf.keras.layers.Conv2D(120, 5)         (x)
     x       = tf.keras.layers.Activation('tanh')     (x)
     x       = tf.keras.layers.Flatten()              (x)
 
     x       = tf.keras.layers.Dense(84)              (x)
-    x       = tf.keras.layers.Activation('sigmoid')  (x)
+    x       = Square()                               (x)
 
-    outputs = tf.keras.layers.Dense(units = shapeou)         (x)
+    outputs = tf.keras.layers.Dense(units = shapeou) (x)
     
     model = tf.keras.Model(inputs, outputs)
     model.compile(optimizer = opt['config']['optimizer']['original'], 
@@ -2027,13 +2025,13 @@ def fun_model_cifar10_modified_lenet(opt):
 
     x       = tf.keras.layers.Conv2D(20, 5)       (inputs)
     x       = tf.keras.layers.Activation('relu')     (x)
-    x       = tf.keras.layers.BatchNormalization()   (x)
+    #x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
     x       = tf.keras.layers.Dropout(0.5)           (x)   
 
     x       = tf.keras.layers.Conv2D(155, 5)         (x)
     x       = tf.keras.layers.Activation('relu')     (x)
-    x       = tf.keras.layers.BatchNormalization()   (x)
+    #x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
     x       = tf.keras.layers.Dropout(0.5)           (x)  
 
@@ -2043,7 +2041,7 @@ def fun_model_cifar10_modified_lenet(opt):
     x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     x       = tf.keras.layers.Dense(2048)            (x)
-    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = Square()                               (x)
     x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     outputs = tf.keras.layers.Dense(units = shapeou) (x)
@@ -2081,13 +2079,13 @@ def fun_model_x_ray_modified_lenet(opt):
 
     x       = tf.keras.layers.Conv2D(16, 5,  2)      (inputs)
     x       = tf.keras.layers.Activation('relu')     (x)
-    x       = tf.keras.layers.BatchNormalization()   (x)
+    #x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
     x       = tf.keras.layers.Dropout(0.5)           (x)   
 
     x       = tf.keras.layers.Conv2D(155, 5)         (x)
     x       = tf.keras.layers.Activation('relu')     (x)
-    x       = tf.keras.layers.BatchNormalization()   (x)
+    #x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
     x       = tf.keras.layers.Dropout(0.5)           (x)  
 
@@ -2097,7 +2095,7 @@ def fun_model_x_ray_modified_lenet(opt):
     x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     x       = tf.keras.layers.Dense(2048)            (x)
-    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = Square()                               (x)
     x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     outputs = tf.keras.layers.Dense(units = shapeou) (x)
@@ -2578,7 +2576,6 @@ def fun_conclude(opt):
     print(" ")
     print("-------------------------------------------------------------------------------------------------------------------------")
     print(" ")
-
 
 def fun_get_arg_parser():
     parser = argparse.ArgumentParser(prog        = 'main_mlsurgery',
