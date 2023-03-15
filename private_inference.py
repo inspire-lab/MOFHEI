@@ -22,9 +22,10 @@ model_configs = {
         'dataset': 'cifar10',
         'task': 'classification'
     },
-    'x-ray-vgg16': {
+    'x-ray-modified-lenet': {
         'dataset': 'x-ray',
-        'task': 'classification'
+        'task': 'classification',
+        'model_type': 'lenet'
     },
     'mnist-hepex-ae1': {
         'dataset': 'mnist',
@@ -69,7 +70,7 @@ crypto_configs = {
         'poly_modulus_degree': 32768,
         'coeff_modulus': [
             40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-            30, 30, 30, 30, 30, 30, 30,30,30,30, 40
+            30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40
         ],
         'scale': 30.0,
         'multiplicative_depth': 19
@@ -111,14 +112,23 @@ crypto_configs = {
         'multiplicative_depth': 7
     },
     'cifar10-modified-lenet': {  # depth esititmate: 19
-      'poly_modulus_degree': 32768,
-      'coeff_modulus': [
-          40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-          30, 30, 30, 40
-      ],
-      'scale': 30.0,
-      'multiplicative_depth': 19
-   }
+        'poly_modulus_degree': 32768,
+        'coeff_modulus': [
+            40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+            30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40
+        ],
+        'scale': 30.0,
+        'multiplicative_depth': 19
+    },
+    'x_ray-modified-lenet': {  # depth esititmate: 19
+        'poly_modulus_degree': 32768,
+        'coeff_modulus': [
+            40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+            30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40
+        ],
+        'scale': 30.0,
+        'multiplicative_depth': 19
+    }
 }
 
 parser = argparse.ArgumentParser(
@@ -224,16 +234,12 @@ if args.quiet:
   tf.compat.v1.logging.set_verbosity(50)
 
 from main_mlsurgery import *
-from mlsurgery import DynamicPolyReLU_D2, DynamicPolyReLU_D3, DynamicPolyReLU_D4
 import numpy as np
 
 import sys
 import time
 
 custom_objects = {
-    'DynamicPolyReLU_D2': DynamicPolyReLU_D2,
-    'DynamicPolyReLU_D3': DynamicPolyReLU_D3,
-    'DynamicPolyReLU_D4': DynamicPolyReLU_D4,
     'DynamicPolyActn_D2': DynamicPolyActn_D2,
     'DynamicPolyActn_D3': DynamicPolyActn_D3,
     'DynamicPolyActn_D4': DynamicPolyActn_D4,
@@ -290,7 +296,9 @@ if os.path.exists('run_' + model_name + '.sh'):
 elif os.path.exists('experiment_' + model_name + '.sh'):
   sh_file_name = 'experiment_' + model_name + '.sh'
 else:
-  raise RuntimeError(f'can not find `{"run_" + model_name + ".sh"}` or `{"experiment__" + model_name + ".sh"}`')
+  raise RuntimeError(
+      f'can not find `{"run_" + model_name + ".sh"}` or `{"experiment__" + model_name + ".sh"}`'
+  )
 
 # 1. read .sh file
 with open(sh_file_name) as f:
