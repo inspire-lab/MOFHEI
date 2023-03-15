@@ -25,7 +25,8 @@ model_configs = {
     'x-ray-modified-lenet': {
         'dataset': 'x-ray',
         'task': 'classification',
-        'model_type': 'lenet'
+        'model_type': 'lenet',
+        'agressive_cleanup': 1000
     },
     'mnist-hepex-ae1': {
         'dataset': 'mnist',
@@ -59,8 +60,9 @@ model_configs = {
     },
     'cifar10-modified-lenet': {
         'dataset': 'cifar10',
-        'task': 'regression',
-        'model_type': 'classification'
+        'task': 'classification',
+        'model_type': 'lenet',
+        'agressive_cleanup': 1000
     }
 }
 
@@ -218,6 +220,7 @@ result_dict['model'] = model_name
 result_dict['dataset'] = data_set
 result_dict['config'] = vars(args)
 
+# set environment variables
 if args.quiet:
   # disable a bunch of logging
   os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -225,6 +228,11 @@ if args.quiet:
 if args.parallel_encryption:
   # enable parallel encryption
   os.environ['ALUMINUM_SHARK_PARALLEL_ENCRYPTION'] = '1'
+
+if 'agressive_cleanup' in model_configs[model_name]:
+  # enable agressive memory cleanup
+  os.environ['ALUMINUM_SHARK_AGRESSIVE_MEMORY_CLEANUP'] = str(
+      model_configs[model_name]['agressive_cleanup'])
 
 import aluminum_shark.core as shark
 import tensorflow as tf
