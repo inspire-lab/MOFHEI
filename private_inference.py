@@ -26,7 +26,7 @@ model_configs = {
         'dataset': 'x-ray',
         'task': 'classification',
         'model_type': 'lenet',
-        'agressive_cleanup': 1000
+        #'agressive_cleanup': 1000
     },
     'mnist-hepex-ae1': {
         'dataset': 'mnist',
@@ -122,7 +122,7 @@ crypto_configs = {
         'scale': 30.0,
         'multiplicative_depth': 19
     },
-    'x_ray-modified-lenet': {  # depth esititmate: 19
+    'x-ray-modified-lenet': {  # depth esititmate: 19
         'poly_modulus_degree': 32768,
         'coeff_modulus': [
             40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
@@ -231,6 +231,7 @@ if args.parallel_encryption:
 
 if 'agressive_cleanup' in model_configs[model_name]:
   # enable agressive memory cleanup
+  print('setting agressive cleanup')
   os.environ['ALUMINUM_SHARK_AGRESSIVE_MEMORY_CLEANUP'] = str(
       model_configs[model_name]['agressive_cleanup'])
 
@@ -331,6 +332,8 @@ elif data_set == 'cifar10':
       mls_opt, experiment_model=model_configs[model_name].get('model_type'))
 elif data_set == 'electrical-stability':
   data, _ = fun_loader_electrical_stability(mls_opt)
+elif data_set == 'x-ray':
+  data, _ = fun_loader_xray64(mls_opt)
 else:
   raise RuntimeError('unkown dataset ' + data_set)
 
@@ -366,7 +369,7 @@ if args.count_operations:
 start = time.time()
 sys.stdout.write('Creating context...')
 result_dict['crypt_config'] = crypto_configs[model_name]
-context = backend.createContext(scheme='ckks', **crypto_configs[model_name])
+context = backend.createContext(scheme='ckks', galois_keys=0, **crypto_configs[model_name])
 end = time.time()
 result_dict['context_creation'] = end - start
 print(' done. {:.2f}seconds'.format(end - start))
