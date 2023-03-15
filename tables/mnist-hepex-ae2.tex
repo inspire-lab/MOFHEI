@@ -1,0 +1,22 @@
+\begin{table}
+\centering
+\caption{Results for mnist-hepex-ae2  Time pruning (TP), Time HE-friendly (THEF), Total HE operations (HE ops)}
+\begin{tabular}{llrllrlllll}
+\toprule
+      Model & Sparsity &  dense units & Reduction0 & HE ops0 &  MSE &    TP &   THEF & Time PI & HE ops & Memory PI \\
+\midrule
+   Original &        - &           64 &          - &       - & 0.01 &     - &      - &       - &      - &         - \\
+HE-Friendly &        - &           64 &          - &  100352 & 0.01 &     - & 103.05 &    7.52 & 200768 &     24.42 \\
+ Pruned 50\% &     0.47 &           34 &       1.88 &   53312 & 0.02 & 39.25 &      - &    5.19 & 106658 &     12.71 \\
+ Pruned 55\% &     0.51 &           31 &       2.06 &   48608 & 0.02 & 39.74 &      - &    4.91 &  97247 &     12.57 \\
+ Pruned 60\% &     0.57 &           27 &       2.37 &   42336 & 0.02 & 39.41 &      - &    4.16 &  84699 &     10.03 \\
+ Pruned 65\% &     0.62 &           24 &       2.67 &   37632 & 0.02 & 38.82 &      - &    3.86 &  75288 &      9.93 \\
+ Pruned 70\% &     0.67 &           21 &       3.05 &   32928 & 0.02 & 38.97 &      - &    3.57 &  65877 &     10.42 \\
+ Pruned 75\% &     0.71 &           18 &       3.56 &   28224 & 0.03 & 39.68 &      - &    3.40 &  56466 &      8.39 \\
+ Pruned 80\% &     0.78 &           14 &       4.57 &   21952 & 0.03 & 38.76 &      - &    3.08 &  43918 &      5.80 \\
+ Pruned 85\% &     0.84 &           10 &       6.40 &   15680 & 0.03 & 39.09 &      - &    2.83 &  31370 &      5.02 \\
+ Pruned 90\% &     0.88 &            7 &       9.14 &   10976 & 0.04 & 38.07 &      - &    2.69 &  21959 &      4.50 \\
+ Pruned 95\% &     0.95 &            3 &      21.33 &    4704 & 0.05 & 38.17 &      - &    2.46 &   9411 &      3.87 \\
+\bottomrule
+\end{tabular}
+\end{table}

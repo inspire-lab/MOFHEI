@@ -1,0 +1,19 @@
+\begin{table}
+\centering
+\caption{Results for mnist-hepex-ae2  Time pruning (TP), Time HE-friendly (THEF), Total HE operations (HE ops), HE-Friendly (HEF). For Dense and Conv layers the table shows # units or filters / reduction factor / HE operations}
+\label{tab:mnist-hepex-ae2_results}
+\begin{tabular}{lllllllllllll}
+\toprule
+Model &    Original &              HEF &               50\% &               55\% &               60\% &               65\% &               70\% &               75\% &               80\% &               85\% &              90\% &              95\% \\
+\midrule
+Sparsity  &           - &                - &              0.47 &              0.51 &              0.57 &              0.62 &              0.67 &              0.71 &              0.78 &              0.84 &             0.88 &             0.95 \\
+Dense 0   &  64 / - / - &  64 / - / 100352 &  34 / 1.9 / 53312 &  31 / 2.1 / 48608 &  27 / 2.4 / 42336 &  24 / 2.7 / 37632 &  21 / 3.0 / 32928 &  18 / 3.6 / 28224 &  14 / 4.6 / 21952 &  10 / 6.4 / 15680 &  7 / 9.1 / 10976 &  3 / 21.3 / 4704 \\
+MSE       &        0.01 &             0.01 &              0.02 &              0.02 &              0.02 &              0.02 &              0.02 &              0.03 &              0.03 &              0.03 &             0.04 &             0.05 \\
+TP        &           - &                - &             39.25 &             39.74 &             39.41 &             38.82 &             38.97 &             39.68 &             38.76 &             39.09 &            38.07 &            38.17 \\
+THEF      &           - &           103.05 &                 - &                 - &                 - &                 - &                 - &                 - &                 - &                 - &                - &                - \\
+Time PI   &           - &             7.52 &              5.19 &              4.91 &              4.16 &              3.86 &              3.57 &              3.40 &              3.08 &              2.83 &             2.69 &             2.46 \\
+HE ops    &           - &           200768 &            106658 &             97247 &             84699 &             75288 &             65877 &             56466 &             43918 &             31370 &            21959 &             9411 \\
+Memory PI &           - &            24.42 &             12.71 &             12.57 &             10.03 &              9.93 &             10.42 &              8.39 &              5.80 &              5.02 &             4.50 &             3.87 \\
+\bottomrule
+\end{tabular}
+\end{table}
