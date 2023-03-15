@@ -11,7 +11,7 @@ python3 main_mlsurgery.py 2 0 -MA True  -AD 2 -EO 100 -ET 100 -EF 100 -PE 10 -OE
 
 git fetch
 git pull
-rm      /home/mrafiei/long/crypto/20230215/MLSurgery/experiment_mnist-lenet/data/*
-git add /home/mrafiei/long/crypto/20230215/MLSurgery/experiment_mnist-lenet/
+rm      ./experiment_mnist-lenet/data/*
+git add ./experiment_mnist-lenet/
 git commit -m "experiment added"
 git push 

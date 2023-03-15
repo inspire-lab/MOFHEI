@@ -11,7 +11,7 @@ python3 main_mlsurgery.py 1 0 -MA True  -AD 0 -EO 100 -ET 100 -EF 100 -PE 10 -OE
 
 git fetch
 git pull
-rm      /home/mrafiei/long/crypto/20230215/MLSurgery/experiment_electrical-stability-fcnet/data/*
-git add /home/mrafiei/long/crypto/20230215/MLSurgery/experiment_electrical-stability-fcnet/
+rm      ./experiment_electrical-stability-fcnet/data/*
+git add ./experiment_electrical-stability-fcnet/
 git commit -m "experiment added"
 git push 

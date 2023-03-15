@@ -11,7 +11,7 @@ python3 main_mlsurgery.py 7 1 -MA True  -AD 0 -EO 30 -ET 50 -EF 50 -PE 10 -OE 10
 
 git fetch
 git pull
-rm      /home/mrafiei/long/crypto/20230215/MLSurgery/experiment_mnist-hepex-ae3/data/*
-git add /home/mrafiei/long/crypto/20230215/MLSurgery/experiment_mnist-hepex-ae3/
+rm      ./experiment_mnist-hepex-ae3/data/*
+git add ./experiment_mnist-hepex-ae3/
 git commit -m "experiment added"
 git push 
