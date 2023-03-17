@@ -26,7 +26,7 @@ model_configs = {
         'dataset': 'x-ray',
         'task': 'classification',
         'model_type': 'lenet',
-        #'agressive_cleanup': 1000
+        'agressive_cleanup': -2
     },
     'mnist-hepex-ae1': {
         'dataset': 'mnist',
@@ -262,7 +262,7 @@ print('creating memory callback')
 from aluminum_shark.tools.memory_logger import MemoryLogger
 
 if args.log_memory or args.log_memory_history:
-  logger = MemoryLogger(log_history=args.log_memory_history)
+  logger = MemoryLogger(log_history=args.log_memory_history, to_file=True)
   logger.start()
 
 base_dir = 'experiment_' + model_name
@@ -410,8 +410,8 @@ result_dict['max_memory'] = -1
 if args.log_memory or args.log_memory_history:
   mem_log = logger.stop_and_read(unit='gb')
   result_dict['max_memory'] = mem_log['rss']
-  print("Memmory requirements: ", mem_log)
   # plot memroy history if availabe
+  print("Memmory requirements: ", 'rss:', mem_log['rss'], 'vms:',mem_log['vms'] )
   if args.log_memory_history:
     import matplotlib.pyplot as plt
     vms_history = mem_log['vms_history']
