@@ -2075,31 +2075,52 @@ def fun_model_x_ray_modified_lenet(opt):
 
     #LeNet: LeCun, Y., Bottou, L., Bengio, Y., & Haffner, P. (1998). Gradient-based learning applied to document recognition. Proceedings of the IEEE, 86(11), 2278-2324.
 
+    # inputs  = tf.keras.Input(shapein)
+
+    # x       = tf.keras.layers.Conv2D(16, 5,  2)      (inputs)
+    # x       = tf.keras.layers.Activation('relu')     (x)
+    # #x       = tf.keras.layers.BatchNormalization()   (x)
+    # x       = tf.keras.layers.MaxPooling2D(2)        (x)
+    # x       = tf.keras.layers.Dropout(0.5)           (x)   
+
+    # #x       = tf.keras.layers.Conv2D(155, 5)         (x)
+    # x       = tf.keras.layers.Conv2D(128, 5)         (x)
+    # x       = tf.keras.layers.Activation('relu')     (x)
+    # #x       = tf.keras.layers.BatchNormalization()   (x)
+    # x       = tf.keras.layers.MaxPooling2D(2)        (x)
+    # x       = tf.keras.layers.Dropout(0.5)           (x)  
+
+    # x       = tf.keras.layers.Conv2D(128, 5)        (x)
+    # x       = tf.keras.layers.Activation('relu')     (x)
+    # x       = tf.keras.layers.Flatten()              (x)
+    # x       = tf.keras.layers.Dropout(0.5)           (x) 
+
+    # x       = tf.keras.layers.Dense(64)            (x)
+    # x       = Square()                               (x)
+    # x       = tf.keras.layers.Dropout(0.5)           (x) 
+
+    # outputs = tf.keras.layers.Dense(units = shapeou) (x)
+    
+
     inputs  = tf.keras.Input(shapein)
 
-    x       = tf.keras.layers.Conv2D(16, 5,  2)      (inputs)
-    x       = tf.keras.layers.Activation('relu')     (x)
-    #x       = tf.keras.layers.BatchNormalization()   (x)
-    x       = tf.keras.layers.MaxPooling2D(2)        (x)
-    x       = tf.keras.layers.Dropout(0.5)           (x)   
+    x       = tf.keras.layers.Conv2D(6, 5, 2)           (inputs)
+    x       = tf.keras.layers.Activation('tanh')     (x)
+    x       = tf.keras.layers.MaxPooling2D(2) (x)
 
-    x       = tf.keras.layers.Conv2D(155, 5)         (x)
-    x       = tf.keras.layers.Activation('relu')     (x)
-    #x       = tf.keras.layers.BatchNormalization()   (x)
-    x       = tf.keras.layers.MaxPooling2D(2)        (x)
-    x       = tf.keras.layers.Dropout(0.5)           (x)  
+    x       = tf.keras.layers.Conv2D(16, 5)          (x)
+    x       = tf.keras.layers.Activation('tanh')     (x)
+    x       = tf.keras.layers.MaxPooling2D(2)    (x)
 
-    x       = tf.keras.layers.Conv2D(2048, 5)        (x)
-    x       = tf.keras.layers.Activation('relu')     (x)
+    x       = tf.keras.layers.Conv2D(120, 5)         (x)
+    x       = tf.keras.layers.Activation('tanh')     (x)
     x       = tf.keras.layers.Flatten()              (x)
-    x       = tf.keras.layers.Dropout(0.5)           (x) 
 
-    x       = tf.keras.layers.Dense(2048)            (x)
+    x       = tf.keras.layers.Dense(84)              (x)
     x       = Square()                               (x)
-    x       = tf.keras.layers.Dropout(0.5)           (x) 
 
     outputs = tf.keras.layers.Dense(units = shapeou) (x)
-    
+
     model = tf.keras.Model(inputs, outputs)
     model.compile(optimizer = opt['config']['optimizer']['original'], 
                   loss      = opt['config']['loss'],
@@ -2107,10 +2128,13 @@ def fun_model_x_ray_modified_lenet(opt):
     
     model.summary() # can be depreciated
 
-    print(opt['config']['optimizer']['original'])
-    print(opt['config']['loss'])
-    print(opt['config']['metrics'])
-    print(opt['config']['optimizer']['original'].lr)
+    # print(opt['config']['optimizer']['original'])
+    # print(opt['config']['loss'])
+    # print(opt['config']['metrics'])
+    # print(opt['config']['optimizer']['original'].lr)
+
+    # print(opt['data']['datain_tr'].shape)
+    # print(opt['data']['dataou_tr'].shape)
 
     model.fit(opt['data']['datain_tr'],
               opt['data']['dataou_tr'],
