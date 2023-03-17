@@ -11,7 +11,7 @@ if len(sys.argv) > 1:
 
 N_RUNS = 5
 
-SPARSITIES = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 0]  # 0 is special value
+SPARSITIES = [95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 0]  # 0 is special value
 #that runs the
 # he-friendly model
 
@@ -42,7 +42,8 @@ def run(experiment, sparsity):
       '--parallel_encryption',
       '--log_memory',
       '--count_operations',
-      '--clear_memory'
+      '--clear_memory',
+      '--progress'
   ]
   sys.stdout.write(' cmd: ' + ' '.join(args)  )
   sys.stdout.flush()
