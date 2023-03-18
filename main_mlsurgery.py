@@ -1301,7 +1301,7 @@ class MLSurgery():
                 MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'actn')
 
 
-            msm = MLSurgery.fun_activation2poly(self)
+            #msm = MLSurgery.fun_activation2poly(self)
             MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'actn')
 
             print("Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | End   | Testing {}: {:2.7f}".format(msm_name, msm))
@@ -1706,8 +1706,9 @@ def fun_loader_mnist(opt, experiment_model = 'lenet'):
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
         
-    
-    return data, opt
+    opt['data'] = data
+
+    return opt
 
 def fun_loader_cifar10(opt, experiment_model = 'lenet'):
 
@@ -1729,7 +1730,9 @@ def fun_loader_cifar10(opt, experiment_model = 'lenet'):
     if experiment_model == 'ae':
         data = fun_input_ravel(data)
 
-    return data, opt
+    opt['data'] = data
+
+    return opt
 
 def fun_loader_electrical_stability(opt):
 
@@ -1743,7 +1746,9 @@ def fun_loader_electrical_stability(opt):
     data['datain_vl'] = datain_vl
     data['datain_te'] = datain_te
 
-    return data, opt
+    opt['data'] = data
+
+    return opt
 
 def fun_loader_xray64(opt):
     data = np.load(opt['files']['data'], allow_pickle=True).item()
@@ -1761,7 +1766,9 @@ def fun_loader_xray64(opt):
 
     data              = fun_image_dimension_control(data)
 
-    return data, opt
+    opt['data'] = data
+
+    return opt
 
 '''
 -CONFIG
@@ -2029,18 +2036,18 @@ def fun_model_cifar10_modified_lenet(opt):
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
     x       = tf.keras.layers.Dropout(0.5)           (x)   
 
-    x       = tf.keras.layers.Conv2D(155, 5)         (x)
+    x       = tf.keras.layers.Conv2D(128, 5)         (x)
     x       = tf.keras.layers.Activation('relu')     (x)
     #x       = tf.keras.layers.BatchNormalization()   (x)
     x       = tf.keras.layers.MaxPooling2D(2)        (x)
     x       = tf.keras.layers.Dropout(0.5)           (x)  
 
-    x       = tf.keras.layers.Conv2D(2048, 5)        (x)
+    x       = tf.keras.layers.Conv2D(512, 5)        (x)
     x       = tf.keras.layers.Activation('relu')     (x)
     x       = tf.keras.layers.Flatten()              (x)
     x       = tf.keras.layers.Dropout(0.5)           (x) 
 
-    x       = tf.keras.layers.Dense(2048)            (x)
+    x       = tf.keras.layers.Dense(512)            (x)
     x       = Square()                               (x)
     x       = tf.keras.layers.Dropout(0.5)           (x) 
 
@@ -2456,8 +2463,8 @@ def fun_initiate(args):
 
     # skip stat for debuging mode
     opt['skip']         = {}
-    opt['skip']['pool'] = False
-    opt['skip']['actn'] = False
+    opt['skip']['pool'] = os.path.exists(opt['files']['pool'])
+    opt['skip']['actn'] = os.path.exists(opt['files']['actn'])
 
     # verbose stat for debuging
     opt['verbose']               = {}
@@ -2477,18 +2484,33 @@ def fun_initiate(args):
     if '-ae' in experiment.lower():
         experiment_model = 'ae'
 
+    # data availability
+    if os.path.exists(opt['files']['data']):
+        data_key = 'loader'
+    else:
+        data_key = 'data'
+    
+
     if 'mnist' in experiment.lower():
-        opt = fun_data_mnist(opt, experiment_model = experiment_model)
+        opt = eval("fun_{}_mnist(opt, experiment_model = experiment_model)".format(data_key))
     elif 'cifar10' in experiment.lower():
-        opt = fun_data_cifar10(opt, experiment_model = experiment_model)
+        opt = eval("fun_{}_cifar10(opt, experiment_model = experiment_model)".format(data_key))
     elif 'electrical' in experiment.lower():
-        opt = fun_data_electrical_stability(opt)
+        opt = eval("fun_{}_electrical_stability(opt)".format(data_key))
     elif 'x-ray' in experiment.lower():
-        opt = fun_data_xray64(opt)
+        opt = eval("fun_{}_xray64(opt)".format(data_key))
     elif 'custom' in experiment.lower():
-        opt = fun_data_custom() # NEEDS TO BE UPDATED
+        opt = eval("fun_{}_custom()".format(data_key)) # NEEDS TO BE UPDATED
     else:
         assert False, 'Error! Read the guideline and double check the experiment information'
+
+
+    # print( opt['data'])
+
+    # print( opt['data']['datain_tr'].shape)
+    # print( opt['data']['dataou_tr'].shape)
+    # print( opt['data']['datain_tr'].max())
+
 
     if args.problem_type == '1':
         opt['data']   = fun_data_autoencoder(opt['data'])
