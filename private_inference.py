@@ -14,14 +14,6 @@ model_configs = {
         'task': 'classification',
         'model_type': 'lenet'
     },
-    'cifar10-alexnet': {
-        'dataset': 'cifar10',
-        'task': 'classification'
-    },
-    'cifar10-vgg16': {
-        'dataset': 'cifar10',
-        'task': 'classification'
-    },
     'x-ray-modified-lenet': {
         'dataset': 'x-ray',
         'task': 'classification',
@@ -40,21 +32,6 @@ model_configs = {
     },
     'mnist-hepex-ae3': {
         'dataset': 'mnist',
-        'task': 'regression',
-        'model_type': 'ae'
-    },
-    'cifar10-hepex-ae1': {
-        'dataset': 'cifar10',
-        'task': 'regression',
-        'model_type': 'ae'
-    },
-    'cifar10-hepex-ae2': {
-        'dataset': 'cifar10',
-        'task': 'regression',
-        'model_type': 'ae'
-    },
-    'cifar10-hepex-ae3': {
-        'dataset': 'cifar10',
         'task': 'regression',
         'model_type': 'ae'
     },
@@ -94,18 +71,6 @@ crypto_configs = {
         'coeff_modulus': [40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40],
         'scale': 30.0,
         'multiplicative_depth': 10
-    },
-    'cifar10-hepex-ae1': {  # depth esititmate: 4
-        'poly_modulus_degree': 8192,
-        'coeff_modulus': [40, 30, 30, 30, 30, 40],
-        'scale': 30.0,
-        'multiplicative_depth': 4
-    },
-    'cifar10-hepex-ae2': {  # depth esititmate: 4
-        'poly_modulus_degree': 8192,
-        'coeff_modulus': [40, 30, 30, 30, 30, 40],
-        'scale': 30.0,
-        'multiplicative_depth': 4
     },
     'electrical-stability-fcnet': {  # depth esititmate: 7
         'poly_modulus_degree': 16384,
@@ -174,6 +139,10 @@ parser.add_argument('-x',
                     '--progress',
                     action='store_true',
                     help='shows progress of the computation')
+parser.add_argument('-S',
+                    '--security',
+                    action='store_true',
+                    help='prints security parameters and exists')
 
 experimental = parser.add_argument_group(
     'experimental features. most of these impact performance')
@@ -289,6 +258,16 @@ result_dict['pruned'] = not args.original
 if args.model_info:
   create_model()
   exit(0)
+
+# display crypto parameters and exit
+if args.security:
+  backend = shark.HEBackend()
+  backend.set_log_level(shark.INFO)
+  for key in crypto_configs:
+    print('model:', key)
+    context = backend.createContext(scheme='ckks', **crypto_configs[key])
+    context.destroy()
+  exit()
 
 # load data
 data_file = os.path.join(base_dir, 'data', 'data.npy')
