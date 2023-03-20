@@ -1,0 +1,28 @@
+\begin{table*}
+\centering
+\caption{Results for the HE-friendly (HEF) X-Ray-LeNet 
+                models and different layer-wise sparsities (columns). The table
+                shows the final Sparsity of the model, the prunable layers and 
+                their units (filters for conv) / reduction factor / number HE 
+                operations, ACC, time needed to prune the model TP,
+                private inference latency (TPI), total number of HE operations 
+                (HEO), and max memory required to perform private inference (MPI)
+                }
+\label{tab:x-ray-modified-lenet_results}
+\resizebox{\textwidth}{!}{\begin{tabular}{llllllllllll}
+\toprule
+ &              HEF &               50\% &               55\% &               60\% &               65\% &               70\% &              75\% &              80\% &              85\% &               90\% &              95\% \\
+\midrule
+Sparsity &                - &              0.70 &              0.79 &              0.79 &              0.84 &              0.87 &             0.90 &             0.96 &             0.96 &              0.98 &             0.99 \\
+Conv 0   &    6 / - / 2.7e5 &   4 / 1.5 / 1.8e5 &   3 / 2.0 / 1.4e5 &   3 / 2.0 / 1.4e5 &   2 / 3.0 / 9.0e4 &   2 / 3.0 / 9.0e4 &  2 / 3.0 / 9.0e4 &  1 / 6.0 / 4.5e4 &  1 / 6.0 / 4.5e4 &   1 / 6.0 / 4.5e4 &  1 / 6.0 / 4.5e4 \\
+Conv 1   &   16 / - / 5.8e5 &   9 / 1.8 / 2.2e5 &   7 / 2.3 / 1.3e5 &   7 / 2.3 / 1.3e5 &   6 / 2.7 / 7.3e4 &   5 / 3.2 / 6.0e4 &  4 / 4.0 / 4.8e4 &  3 / 5.3 / 1.8e4 &  3 / 5.3 / 1.8e4 &   3 / 5.3 / 1.8e4 &  2 / 8.0 / 1.2e4 \\
+Conv 2   &  120 / - / 9.6e4 &  62 / 1.9 / 2.8e4 &  54 / 2.2 / 1.9e4 &  55 / 2.2 / 1.9e4 &  49 / 2.4 / 1.5e4 &  47 / 2.6 / 1.2e4 &  45 / 2.7 / 9000 &  24 / 5.0 / 3600 &  21 / 5.7 / 3150 &  12 / 10.0 / 1800 &   7 / 17.1 / 700 \\
+Dense 0  &   84 / - / 2.0e4 &   50 / 1.7 / 6200 &   44 / 1.9 / 4752 &   40 / 2.1 / 4400 &   36 / 2.3 / 3528 &   33 / 2.5 / 3102 &  28 / 3.0 / 2520 &  26 / 3.2 / 1248 &   21 / 4.0 / 882 &    13 / 6.5 / 312 &    6 / 14.0 / 84 \\
+ACC      &             0.75 &              0.72 &              0.75 &              0.74 &              0.72 &              0.72 &             0.79 &             0.81 &             0.78 &              0.80 &             0.79 \\
+TP       &                - &                21 &                19 &                20 &                20 &                40 &               77 &               91 &               25 &                93 &               93 \\
+TPI      &          1163.31 &            597.69 &            409.00 &            401.82 &            269.51 &            249.37 &           236.47 &           121.77 &           120.35 &            118.63 &           109.30 \\
+HEO      &                - &                21 &                19 &                19 &                19 &                39 &               77 &               91 &               24 &                92 &               93 \\
+MPI      &              386 &               280 &               229 &               228 &               176 &               175 &              177 &              122 &              123 &               122 &              123 \\
+\bottomrule
+\end{tabular}}
+\end{table*}

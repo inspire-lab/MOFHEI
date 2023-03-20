@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import time
+import numpy as np
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
@@ -11,6 +12,25 @@ from main_mlsurgery import *
 import pandas
 import json
 
+translator = {
+    'mnist-hepex-ae1': 'MNIST-AE1',
+    'mnist-hepex-ae2': 'MNIST-AE2',
+    'mnist-hepex-ae3': 'MNIST-AE3',
+    'cifar10-modified-lenet': 'CIFAR-10-MLeNet',
+    'electrical-stability-fcnet': 'EGSS-FcNet',
+    'mnist-lenet': 'MNIST-LeNet',
+    'x-ray-modified-lenet': 'X-Ray-LeNet'
+}
+
+markers = {
+    'mnist-hepex-ae1': 'vb--',
+    'mnist-hepex-ae2': '^g--',
+    'mnist-hepex-ae3': '<r--',
+    'cifar10-modified-lenet': 'oc-',
+    'electrical-stability-fcnet': '*m-',
+    'mnist-lenet': 'Py-',
+    'x-ray-modified-lenet': 'xk-'
+}
 N_RUNS = 5
 
 SPARSITIES = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
@@ -56,15 +76,6 @@ def parse_result_file(result_file):
         models.remove(model)
         ret[model] = {}
         continue
-
-      # # code to handle legacy files with line breaks after `Final Sparsity:`
-      # if 'Final Sparsity' in line:
-      #   continue
-      # if len(line.split(':')) == 1:
-      #   key = float(line)
-      #   ret['Final Sparsity'] = key
-      #   continue
-
       key, value = line.split(':')
       key = key.strip()
       value = value.strip()
@@ -91,16 +102,32 @@ def parse_pi_results(file_base, dir):
   if len(files) == 0:
     return False
   res = None
+
+  max_mem = []
+  private_inference = []
+  encryption_error = []
   for file in files:
     with open(os.path.join(dir, file), 'r') as f:
       d = json.loads(f.read())
+    max_mem.append(d['max_memory'])
+    private_inference.append(d['private_inference'])
+    encryption_error.append(d['encyrption_error'])
     if res is None:
       res = d
       continue
     res['max_memory'] += d['max_memory']
     res['private_inference'] += d['private_inference']
+    res['encyrption_error'] += d['encyrption_error']
   res['max_memory'] /= len(files)
   res['private_inference'] /= len(files)
+  res['encyrption_error'] /= len(files)
+
+  # print(dir, file_base)
+  # print('\tmax_memory std:', np.std(max_mem), 'var:', np.var(max_mem))
+  # print('\tprivate_inference std:', np.std(private_inference), 'var:',
+  #       np.var(private_inference))
+  # print('\tencryption_error std:', np.std(encryption_error), 'var:',
+  #       np.var(encryption_error))
 
   # extract layer info
   hlos = res['hlos']
@@ -121,6 +148,10 @@ def parse_pi_results(file_base, dir):
       layer.pop('before')
       layer.pop('after')
 
+      continue
+
+    # currently not in a layer. could be an activation function or somethiong
+    if len(layer) == 0:
       continue
 
     # now looking for the end of a layer. basically anything but an add concludes
@@ -148,17 +179,27 @@ def parse_pi_results(file_base, dir):
   return res
 
 
-# get all available experiments
-current_dir = os.listdir()
+# # get all available experiments
+# current_dir = os.listdir()
+
+# experiments = [
+#     f.replace('experiment_', '')
+#     for f in current_dir
+#     # if os.path.isdir(f) and f == 'experiment_mnist-hepex-ae1'
+#     if os.path.isdir(f) and f.startswith('experiment_')
+# ]
+# experiments.sort()
+# print('Experinments found:', *experiments)
 
 experiments = [
-    f.replace('experiment_', '')
-    for f in current_dir
-    # if os.path.isdir(f) and f == 'experiment_mnist-hepex-ae1'
-    if os.path.isdir(f) and f.startswith('experiment_')
+    'mnist-lenet',
+    'x-ray-modified-lenet',
+    'cifar10-modified-lenet',
+    'electrical-stability-fcnet',
+    'mnist-hepex-ae1',
+    'mnist-hepex-ae2',
+    'mnist-hepex-ae3',
 ]
-experiments.sort()
-print('Experinments found:', *experiments)
 
 data_frames = []
 
@@ -174,7 +215,10 @@ for exp in experiments:
   # create dataframes
   columns = ['Model', 'Sparsity']
   for i, l in enumerate(layers):
-    columns.append(l['name'] + ' units' if 'units' in l else 'filters')
+    if 'units' in l:
+      columns.append(l['name'] + ' units')
+    else:
+      columns.append(l['name'] + ' filters')
     columns.append('Reduction' + str(i))
     columns.append('HE ops' + str(i))
 
@@ -214,12 +258,7 @@ for exp in experiments:
     metric = list(results['Original Model'].keys())[0].split()[0]
 
     # check if want to add the values for the he friendly and original model
-    if not parse_pi_results('hefriendly', os.path.join(exp_dir, 'results')):
-      print(
-          f'hefriendly not found. in {os.path.join(exp_dir, "results")} skipping'
-      )
-    if do_he_friendly and parse_pi_results('hefriendly',
-                                           os.path.join(exp_dir, 'results')):
+    if do_he_friendly:
       do_he_friendly = False
       # original model
       dict['MSE'].append(results['Original Model'][f'{metric} Test'])
@@ -228,25 +267,41 @@ for exp in experiments:
       # for the HE friendly model we need some values from the pi results files
       pi_results = parse_pi_results('hefriendly',
                                     os.path.join(exp_dir, 'results'))
+      if not pi_results:
+        dict['Model'].append('HE-Friendly')
+        dict['Sparsity'].append('-')
+        for i, l in enumerate(layers):
+          key = columns[(i * 3) + 2]
+          dict[key].append(l['value'])
+          dict['Reduction' + str(i)].append('-')
+          dict['HE ops' + str(i)].append('N/A')
 
-      dict['Model'].append('HE-Friendly')
-      dict['Sparsity'].append('-')
-      for i, l in enumerate(layers):
-        key = columns[(i * 3) + 2]
-        pi_layer = pi_results['layers'][i]
-        assert pi_layer[
-            'type'] in key, f'layer mismatch expected: {key} got {pi_layer["type"]}'
-        dict[key].append(l['value'])
-        dict['Reduction' + str(i)].append('-')
-        dict['HE ops' + str(i)].append(int(pi_layer['total_ctxt_ops']))
+        dict['MSE'].append(results['HE-Friendly Model'][f'{metric} Test'])
+        dict['Time pruning'].append('-')
+        dict['Time HE-friendly'].append(results['Time HE-Friendly Model'])
+        dict['Time PI'].append('N/A')
+        dict['Total HE operations'].append('N/A')
+        dict['Memory PI'].append('N/A')
 
-      dict['MSE'].append(results['HE-Friendly Model'][f'{metric} Test'])
-      dict['Time pruning'].append('-')
-      dict['Time HE-friendly'].append(results['Time HE-Friendly Model'])
-      dict['Time PI'].append(pi_results['private_inference'])
-      dict['Total HE operations'].append(
-          int(pi_results['total_ciphertext_operations']))
-      dict['Memory PI'].append(pi_results['max_memory'])
+      else:
+        dict['Model'].append('HE-Friendly')
+        dict['Sparsity'].append('-')
+        for i, l in enumerate(layers):
+          key = columns[(i * 3) + 2]
+          pi_layer = pi_results['layers'][i]
+          assert pi_layer[
+              'type'] in key, f'layer mismatch expected: {key} got {pi_layer["type"]}'
+          dict[key].append(l['value'])
+          dict['Reduction' + str(i)].append('-')
+          dict['HE ops' + str(i)].append(int(pi_layer['total_ctxt_ops']))
+
+        dict['MSE'].append(results['HE-Friendly Model'][f'{metric} Test'])
+        dict['Time pruning'].append('-')
+        dict['Time HE-friendly'].append(results['Time HE-Friendly Model'])
+        dict['Time PI'].append(pi_results['private_inference'])
+        dict['Total HE operations'].append(
+            int(pi_results['total_ciphertext_operations']))
+        dict['Memory PI'].append(pi_results['max_memory'])
 
     # do the proper pruned files
     pi_results = parse_pi_results(f'pruned_{sparsity}',
@@ -275,6 +330,7 @@ for exp in experiments:
       pi_layer = pi_results['layers'][i]
       assert pi_layer[
           'type'] in key, f'layer mismatch expected: {key} got {pi_layer["type"]}'
+
       dict[columns[index]].append(value)
       dict['Reduction' + str(i)].append(reduction)
       dict['HE ops' + str(i)].append(int(pi_layer['total_ctxt_ops']))
@@ -319,6 +375,18 @@ for exp in experiments:
       f'Results for {exp}  Time pruning (TP), Time HE-friendly (THEF), Total HE operations (HE ops)'
   )
 
+  with open(os.path.join('tables', f'{exp}.tex'), 'r+') as f:
+    # reaplce table
+    text = f.read().replace("\\begin{table}", "\\begin{table*}")
+    text = text.replace("\\end{table}", "\\end{table*}")
+    # add resize box
+    text = text.replace("\\begin{tabular}",
+                        "\\resizebox{\\textwidth}{!}{\\begin{tabular}")
+    text = text.replace("\\end{tabular}", "\\end{tabular}}")
+
+    f.seek(0)
+    f.write(text)
+
   # first we create tables
   df = df.set_index('Model')
   df_t = df.T
@@ -346,140 +414,557 @@ for exp in experiments:
 
   # combine the layer , reduction, and he ops
   delete_me = []
+  count = 0
+
+  def float_format(x):
+    if isinstance(x, str):
+      return x
+    return f'{x:.1f}'
+
+  def to_scienttific(x):
+    try:
+      x = int(x)
+    except:
+      return x
+    digits = int(np.log10(x))
+    if digits < 4:
+      return x
+    x /= 10**digits
+    return (float_format(x) + 'e' + str(digits))
+
   for idx in df_t.index:
     if 'conv' in idx.lower() or 'dense' in idx.lower():
       # get the Reductioni and HE opsi row
-      i = idx.split()[1]
+
+      # i = idx.split()[1]
       row = df_t.loc[idx]
-      red_row = df_t.loc['Reduction' + i]
-      heo_row = df_t.loc['HE ops' + i]
+      red_row = df_t.loc['Reduction' + str(count)]
+      heo_row = df_t.loc['HE ops' + str(count)]
 
       # build the new row
-      def float_format(x):
-        if isinstance(x, str):
-          return x
-        return f'{x:.1f}'
-
       new_row = [
-          f'{r} / {float_format(red)} / {he}'
+          f'{r} / {float_format(red)} / {to_scienttific(he)}'
           for r, red, he in zip(row, red_row, heo_row)
       ]
       # update row
       df_t.loc[idx] = new_row
       # flag for deletion
-      delete_me.append('Reduction' + i)
-      delete_me.append('HE ops' + i)
+      delete_me.append('Reduction' + str(count))
+      delete_me.append('HE ops' + str(count))
+      count += 1
 
   df_t.drop(delete_me, inplace=True)
+  # delete the original comlumn
+  df_t.drop('Original', axis='columns', inplace=True)
+  # delete the Time pruning comlumn
+  df_t.drop('THEF', axis='rows', inplace=True)
 
-  df_t.to_latex(
-      os.path.join('tables', f'{exp}_T_.tex'),
-      float_format="{:0.2f}".format,
-      caption=
-      f'Results for {exp}  Time pruning (TP), Time HE-friendly (THEF), Total HE operations (HE ops), HE-Friendly (HEF). For Dense and Conv layers the table shows # units or filters / reduction factor / HE operations',
-      label=f'tab:{exp}_results')
+  # reformat some rows
+  def to_int(x):
+    if isinstance(x, float):
+      return round(x)
+    else:
+      return x
+
+  df_t.loc['HE ops'] = [to_scienttific(x) for x in df_t.loc['TP']]
+  df_t.loc['TP'] = [to_int(x) for x in df_t.loc['TP']]
+  df_t.loc['Memory PI'] = [to_int(x) for x in df_t.loc['Memory PI']]
+
+  # rename first columns
+  df_t.rename(index={
+      'Time PI': 'TPI',
+      'HE ops': 'HEO',
+      'Memory PI': 'MPI'
+  },
+              inplace=True)
+
+  if metric == 'ACC':
+    metric_string = 'accuracy (ACC)'
+  else:
+    metric_string = 'mean squared error (MSE)'
+
+  df_t.to_latex(os.path.join('tables', f'{exp}_T_.tex'),
+                float_format="{:0.2f}".format,
+                caption=f"""Results for the HE-friendly (HEF) {translator[exp]} 
+                models and different layer-wise sparsities (columns). The table
+                shows the final Sparsity of the model, the prunable layers and 
+                their units (filters for conv) / reduction factor / number HE 
+                operations, {metric}, time needed to prune the model TP,
+                private inference latency (TPI), total number of HE operations 
+                (HEO), and max memory required to perform private inference (MPI)
+                """,
+                label=f'tab:{exp}_results')
+
+  with open(os.path.join('tables', f'{exp}_T_.tex'), 'r+') as f:
+    # reaplce table
+    text = f.read().replace("\\begin{table}", "\\begin{table*}")
+    text = text.replace("\\end{table}", "\\end{table*}")
+    # add resize box
+    text = text.replace("\\begin{tabular}",
+                        "\\resizebox{\\textwidth}{!}{\\begin{tabular}")
+    text = text.replace("\\end{tabular}", "\\end{tabular}}")
+    text = text.replace("Model", '')
+
+    f.seek(0)
+    f.write(text)
+
+# stick all tables in one file
+files = os.listdir('tables')
+
+# not transposed tables
+non_t_tables = []
+# transposed tables
+t_tables = []
+for file in files:
+  if not file.endswith('.tex'):
+    continue
+  cont = False
+  for exp in experiments:
+    cont = cont or exp in file
+  if not cont:
+    continue
+  with open(os.path.join('tables', file)) as f:
+    if '_T_' in file:
+      t_tables.append(f.read())
+    else:
+      non_t_tables.append(f.read())
+
+with open('tables/all_tables.tex', 'w') as f:
+  f.write('\n\n\n'.join(non_t_tables))
+
+with open('tables/all_T_tables.tex', 'w') as f:
+  f.write('\n\n\n'.join(t_tables))
+
+# generate table that compares the origianl models and the
+d = {
+    'Model': [],
+    'Metric': [],
+    'Org.': [],
+    'HEf': [],
+    'Change': [],
+    'HEf (s)': []
+}
+for exp, df in data_frames:
+  d['Model'].append(translator[exp].replace('-modified-lenet',
+                                            '').replace('electrical-stability',
+                                                        'EGSS'))
+  if 'ACC' in df.columns:
+    d['Metric'].append('Acc.')
+    metric = 'ACC'
+  else:
+    d['Metric'].append('MSE')
+    metric = 'MSE'
+  # get the metric for the original model and hef model
+  metric_org = df.iloc[0][metric]
+  metric_hef = df.iloc[1][metric]
+  change = abs(metric_org - metric_hef) / metric_org
+
+  d['Org.'].append(metric_org)
+  d['HEf'].append(metric_hef)
+  d['Change'].append(change)
+  d['HEf (s)'].append(df.iloc[1]['Time HE-friendly'])
+
+# create a dataframe and latex table
+df = pandas.DataFrame(d)
+
+tex_string = df.to_latex(os.path.join('tables', f'org_vs_hef.tex'),
+                         float_format="{:0.2f}".format,
+                         index=False,
+                         caption=f"""
+      Comparison of the original model (Org.) and the HE-friendly model (HEf) in
+      terms of: performance metric (either Accuracy (Acc.) or Mean squared Error
+      (MSE)), the relative change in the metric, and the time to transform the 
+      original model into an HE-friendly one in seconds (HEf (s)). 
+      """,
+                         label=f'tab:org_vs_hef')
 
 # generate figures
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
+
+
+def clean_plot(x, y):
+  _x = []
+  _y = []
+  for v0, v1 in zip(x, y):
+    try:
+      v1 = float(v1)
+      _x.append(v0)
+      _y.append(v1)
+    except:
+      pass
+  return _x, _y
+
+
+label_font_size = 'xx-large'
+label_fontweight = 'bold'
+tick_size = 'xx-large'
+
 
 # private infernce time vs sparsity
-x = [0] + SPARSITIES
-for exp, df in data_frames:
-  y = list(df['Time PI'])[1:]
-  plt.plot(x, y, 'o-', label=exp)
-plt.legend()
-plt.xlabel('Sparsity in %')
-plt.ylabel('Private Inference in s')
+def pi_sparsity(fig, ax):
+  for exp, df in data_frames:
+    x = [0] + SPARSITIES
+    y = list(df['Time PI'])[1:]
+    _x, _y = clean_plot(x, y)
+    ax.plot(_x, _y, markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Private Inference In Seconds',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+pi_sparsity(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
 plt.savefig(os.path.join('figures', 'pi_sparsity.pdf'))
 plt.clf()
 
+
+# log y
+def pi_sparsity_log(fig, ax):
+  for exp, df in data_frames:
+    x = [0] + SPARSITIES
+    y = list(df['Time PI'])[1:]
+    _x, _y = clean_plot(x, y)
+    _y = np.log10(_y).astype(float)
+    ax.plot(_x, _y, markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Private Inference In $log_{10}$ Seconds',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+pi_sparsity_log(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
+plt.savefig(os.path.join('figures', 'pi_sparsity_log.pdf'))
+plt.clf()
+
+
 # private infernce time reduction % vs sparsity
-x = [0] + SPARSITIES
-for exp, df in data_frames:
-  y = list(df['Time PI'])[1:]
-  y = [x / y[0] for x in y]
-  plt.plot(x, y, 'o-', label=exp)
-plt.legend()
-plt.xlabel('Sparsity in %')
-plt.ylabel('Private inference time reduction')
+def pi_reduction_sparsity(fig, ax):
+  for exp, df in data_frames:
+    x = [0] + SPARSITIES
+    y = list(df['Time PI'])[1:]
+    x, y = clean_plot(x, y)
+    y = [x / y[0] for x in y]
+    ax.plot(x, y, markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Private Inference Time Reduction',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+pi_reduction_sparsity(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
 plt.savefig(os.path.join('figures', 'pi_reduction_sparsity.pdf'))
 plt.clf()
 
+
 # sparsity vs pruning time
-x = SPARSITIES
-for exp, df in data_frames:
-  y = list(df['Time pruning'])[2:]
-  plt.plot(x, y, 'o-', label=exp)
-plt.legend()
-plt.xlabel('Sparsity in %')
-plt.ylabel('Time Pruning in s')
+def time_pruning_sparsity(fig, ax):
+  for exp, df in data_frames:
+    x = SPARSITIES
+    y = list(df['Time pruning'])[2:]
+    ax.plot(*clean_plot(x, y), markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Pruning Time In Seconds',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+time_pruning_sparsity(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
 plt.savefig(os.path.join('figures', 'time_pruning_sparsity.pdf'))
 plt.clf()
 
+
+#log
+def time_pruning_sparsity_log(fig, ax):
+  for exp, df in data_frames:
+    x = SPARSITIES
+    y = list(df['Time pruning'])[2:]
+    _x, _y = clean_plot(x, y)
+    _y = np.log10(_y).astype(float)
+    ax.plot(_x, _y, markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Pruning Time in $log_{10}$ Seconds',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+time_pruning_sparsity_log(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
+plt.savefig(os.path.join('figures', 'time_pruning_sparsity_log.pdf'))
+plt.clf()
+
+
 # sparsity vs he-ops
-x = [0] + SPARSITIES
-for exp, df in data_frames:
-  y = list(df['Total HE operations'])[1:]
-  plt.plot(x, y, 'o-', label=exp)
-plt.legend()
-plt.xlabel('Sparsity in %')
-plt.ylabel('Total HE operations')
+def total_heops_sparsity(fig, ax):
+  for exp, df in data_frames:
+    x = SPARSITIES
+    y = list(df['Total HE operations'])[1:]
+    ax.plot(*clean_plot(x, y), markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Total HE Operations',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+total_heops_sparsity(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
 plt.savefig(os.path.join('figures', 'total_heops_sparsity.pdf'))
 plt.clf()
 
+
+# log
+def total_heops_sparsity_log(fig, ax):
+  for exp, df in data_frames:
+    print(exp)
+    x = SPARSITIES
+    y = list(df['Total HE operations'])[1:]
+    _x, _y = clean_plot(x, y)
+    _y = np.log10(_y).astype(float)
+    ax.plot(_x, _y, markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Total HE Operations $log_{10}$',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+total_heops_sparsity_log(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
+plt.savefig(os.path.join('figures', 'total_heops_sparsity_log.pdf'))
+plt.clf()
+
+
 # sparsity vs he-ops reduction
-x = [0] + SPARSITIES
-for exp, df in data_frames:
-  y = list(df['Total HE operations'])[1:]
-  y = [x / y[0] for x in y]
-  plt.plot(x, y, 'o-', label=exp)
-plt.legend()
-plt.xlabel('Sparsity in %')
-plt.ylabel('Total HE operations reduction')
+def total_heops_reduction_sparsity(fig, ax):
+  for exp, df in data_frames:
+    x = SPARSITIES
+    y = list(df['Total HE operations'])[1:]
+    x, y = clean_plot(x, y)
+    y = [x / y[0] for x in y]
+    ax.plot(*clean_plot(x, y), markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Total HE Operations Reduction',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+total_heops_reduction_sparsity(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
 plt.savefig(os.path.join('figures', 'total_heops_reduction_sparsity.pdf'))
 plt.clf()
 
+
 # sparsity vs memory
 # 'Memory PI'
-x = [0] + SPARSITIES
-for exp, df in data_frames:
-  y = list(df['Memory PI'])[1:]
-  plt.plot(x, y, 'o-', label=exp)
-plt.legend()
-plt.xlabel('Sparsity in %')
-plt.ylabel('Memory requirement private inference in GB')
+def memory_sparsity(fig, ax):
+  for exp, df in data_frames:
+    x = SPARSITIES
+    y = list(df['Memory PI'])[1:]
+    ax.plot(*clean_plot(x, y), markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Private Inference Memory In GB',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+memory_sparsity(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
 plt.savefig(os.path.join('figures', 'memory_sparsity.pdf'))
 plt.clf()
 
+
+#loglegend
+def memory_sparsity_log(fig, ax):
+  for exp, df in data_frames:
+    x = [0] + SPARSITIES
+    y = list(df['Memory PI'])[1:]
+    _x, _y = clean_plot(x, y)
+    _y = np.log10(_y).astype(float)
+    ax.plot(_x, _y, markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Private Inference Memory In $log_{10}$ GB ',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+memory_sparsity_log(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
+plt.savefig(os.path.join('figures', 'memory_sparsity_log.pdf'))
+plt.clf()
+
+
 # sparsity vs memory_reduction
 # 'Memory PI'
-x = [0] + SPARSITIES
-for exp, df in data_frames:
-  y = list(df['Memory PI'])[1:]
-  y = [x / y[0] for x in y]
-  plt.plot(x, y, 'o-', label=exp)
-plt.legend()
-plt.xlabel('Sparsity in %')
-plt.ylabel('Reduction in memory for private inference')
+def memory_reduction_sparsity(fig, ax):
+  for exp, df in data_frames:
+    x = SPARSITIES
+    y = list(df['Memory PI'])[1:]
+    x, y = clean_plot(x, y)
+    y = [x / y[0] for x in y]
+    ax.plot(*clean_plot(x, y), markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Private Inference Memory Reduction',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+memory_reduction_sparsity(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
 plt.savefig(os.path.join('figures', 'memory_reduction_sparsity.pdf'))
 plt.clf()
 
+
 # sparsity vs performance
-x = [0] + SPARSITIES
-for exp, df in data_frames:
-  mse = 'MSE' in df.columns
-  print('is MSE', mse)
-  if mse:
-    y = list(df['MSE'])
-    baseline = y[0]
-    y = [baseline / x for x in y[1:]]
-  else:
-    y = list(df['ACC'])
-    baseline = y[0]
-    y = [x / baseline for x in y[1:]]
-  plt.plot(x, y, 'o-', label=exp)
-plt.legend()
-plt.xlabel('Sparsity in %')
-plt.ylabel('Perfromance compared to baseline')
+def performance_sparsity(fig, ax):
+  x = [0] + SPARSITIES
+  for exp, df in data_frames:
+    mse = 'MSE' in df.columns
+    if mse:
+      y = list(df['MSE'])
+      x, y = clean_plot(x, y)
+      baseline = y[0]
+      y = [baseline / x for x in y[1:]]
+    else:
+      y = list(df['ACC'])
+      x, y = clean_plot(x, y)
+      baseline = y[0]
+      y = [x / baseline for x in y[1:]]
+    ax.plot(*clean_plot(x, y), markers[exp], label=translator[exp])
+  ax.set_xlabel('Layer-wise Sparsity In %',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.set_ylabel('Perfromance compared to baseline',
+                fontsize=label_font_size,
+                fontweight=label_fontweight)
+  ax.tick_params(axis='x', labelsize=tick_size)
+  ax.tick_params(axis='y', labelsize=tick_size)
+  ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+
+performance_sparsity(plt.gcf(), plt.gca())
+# plt.gca().legend()
+plt.tight_layout()
 plt.savefig(os.path.join('figures', 'performance_sparsity.pdf'))
 plt.clf()
+
+legend_handles = [
+    plt.gca().plot([1], [1], markers[exp], label=translator[exp])[0]
+    for exp, _ in data_frames
+]
+plt.clf()
+
+plt.gca().axis('off')
+plt.gca().legend(handles=legend_handles, loc='center', prop={'size': 'x-large'})
+plt.tight_layout()
+plt.tight_layout()
+plt.savefig(os.path.join('figures', 'one_legend_to_rule_them_all.pdf'))
+
+# # create on big figure
+scale = 3.
+fig, axs = plt.subplots(
+    nrows=2,
+    ncols=4,
+    # sharex=True,
+    figsize=[6.4 * scale, 4.8 * scale * 0.5])
+axs = axs.reshape(-1)
+pi_sparsity(fig, axs[0])
+pi_reduction_sparsity(fig, axs[1])
+# time_pruning_sparsity(fig, axs[2])
+total_heops_sparsity(fig, axs[2])
+total_heops_reduction_sparsity(fig, axs[3])
+memory_sparsity(fig, axs[4])
+memory_reduction_sparsity(fig, axs[5])
+performance_sparsity(fig, axs[6])
+axs[7].axis('off')
+axs[7].legend(handles=legend_handles, loc='center')
+fig.tight_layout()
+fig.savefig(os.path.join('figures', 'all.pdf'))
+
+# log scale
+fig, axs = plt.subplots(
+    nrows=2,
+    ncols=4,
+    # sharex=True,
+    figsize=[6.4 * scale, 4.8 * scale * 0.5])
+axs = axs.reshape(-1)
+pi_sparsity_log(fig, axs[0])
+pi_reduction_sparsity(fig, axs[1])
+time_pruning_sparsity_log(fig, axs[2])
+total_heops_sparsity_log(fig, axs[2])
+total_heops_reduction_sparsity(fig, axs[3])
+memory_sparsity_log(fig, axs[4])
+memory_reduction_sparsity(fig, axs[5])
+performance_sparsity(fig, axs[6])
+axs[7].axis('off')
+axs[7].legend(handles=legend_handles, loc='center', prop={'size': 'x-large'})
+fig.tight_layout()
+fig.savefig(os.path.join('figures', 'all_log.pdf'))

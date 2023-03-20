@@ -1,0 +1,23 @@
+\begin{table}
+\centering
+\caption{
+      Comparison of the original model (Org.) and the HE-friendly model (HEf) in
+      terms of: performance metric (either Accuracy (Acc.) or Mean squared Error
+      (MSE)), the relative change in the metric, and the time to transform the 
+      original model into an HE-friendly one in seconds (HEf (s)). 
+      }
+\label{tab:org_vs_hef}
+\begin{tabular}{llrrrr}
+\toprule
+          Model & Metric &  Org. &  HEf &  Change &  HEf (s) \\
+\midrule
+    MNIST-LeNet &   Acc. &  0.99 & 0.99 &    0.00 &   112.75 \\
+    X-Ray-LeNet &   Acc. &  0.84 & 0.75 &    0.10 &   198.42 \\
+CIFAR-10-MLeNet &   Acc. &  0.76 & 0.75 &    0.02 &     0.00 \\
+     EGSS-FcNet &   Acc. &  0.94 & 0.93 &    0.02 &    32.61 \\
+      MNIST-AE1 &    MSE &  0.02 & 0.02 &    0.06 &    91.86 \\
+      MNIST-AE2 &    MSE &  0.01 & 0.01 &    0.12 &   103.05 \\
+      MNIST-AE3 &    MSE &  0.02 & 0.02 &    0.01 &   211.91 \\
+\bottomrule
+\end{tabular}
+\end{table}

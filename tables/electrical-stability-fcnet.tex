@@ -1,7 +1,7 @@
-\begin{table}
+\begin{table*}
 \centering
 \caption{Results for electrical-stability-fcnet  Time pruning (TP), Time HE-friendly (THEF), Total HE operations (HE ops)}
-\begin{tabular}{llrllrllrllrlllll}
+\resizebox{\textwidth}{!}{\begin{tabular}{llrllrllrllrlllll}
 \toprule
       Model & Sparsity &  dense units & Reduction0 & HE ops0 &  dense\_1 units & Reduction1 & HE ops1 &  dense\_2 units & Reduction2 & HE ops2 &  ACC &    TP &  THEF & Time PI & HE ops & Memory PI \\
 \midrule
@@ -18,5 +18,5 @@ HE-Friendly &        - &           64 &          - &    1536 &            128 & 
  Pruned 90\% &     0.98 &           12 &       5.33 &     288 &             18 &       7.11 &     432 &             27 &       9.48 &     972 & 0.91 & 20.60 &     - &    0.80 &   1857 &      1.59 \\
  Pruned 95\% &     0.99 &            5 &      12.80 &     120 &              9 &      14.22 &      90 &             13 &      19.69 &     234 & 0.90 & 19.42 &     - &    0.58 &    523 &      1.29 \\
 \bottomrule
-\end{tabular}
-\end{table}
+\end{tabular}}
+\end{table*}

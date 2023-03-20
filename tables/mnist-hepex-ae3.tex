@@ -1,7 +1,7 @@
-\begin{table}
+\begin{table*}
 \centering
 \caption{Results for mnist-hepex-ae3  Time pruning (TP), Time HE-friendly (THEF), Total HE operations (HE ops)}
-\begin{tabular}{llrllrllrllrlllll}
+\resizebox{\textwidth}{!}{\begin{tabular}{llrllrllrllrlllll}
 \toprule
       Model & Sparsity &  dense units & Reduction0 & HE ops0 &  dense\_1 units & Reduction1 & HE ops1 &  dense\_2 units & Reduction2 & HE ops2 &  MSE &    TP &   THEF & Time PI & HE ops & Memory PI \\
 \midrule
@@ -18,5 +18,5 @@ HE-Friendly &        - &           64 &          - &  100352 &             32 & 
  Pruned 90\% &     0.89 &            7 &       9.14 &   10976 &              3 &      10.67 &      42 &              7 &       9.14 &      42 & 0.05 & 49.03 &      - &   12.29 &  22053 &     13.40 \\
  Pruned 95\% &     0.95 &            3 &      21.33 &    4704 &              2 &      16.00 &      12 &              3 &      21.33 &      12 & 0.05 & 49.28 &      - &   11.39 &   9440 &      9.21 \\
 \bottomrule
-\end{tabular}
-\end{table}
+\end{tabular}}
+\end{table*}
