@@ -202,6 +202,7 @@ experiments = [
 ]
 
 data_frames = []
+data_frames_t = []
 
 for exp in experiments:
   exp_dir = 'experiment_' + exp
@@ -466,7 +467,7 @@ for exp in experiments:
     else:
       return x
 
-  df_t.loc['HE ops'] = [to_scienttific(x) for x in df_t.loc['TP']]
+  df_t.loc['HE ops'] = [to_scienttific(x) for x in df_t.loc['HE ops']]
   df_t.loc['TP'] = [to_int(x) for x in df_t.loc['TP']]
   df_t.loc['Memory PI'] = [to_int(x) for x in df_t.loc['Memory PI']]
 
@@ -508,8 +509,18 @@ for exp in experiments:
     f.seek(0)
     f.write(text)
 
+  data_frames_t.append((exp, df_t))
+
 # stick all tables in one file
 files = os.listdir('tables')
+
+# sort them according to the global order
+f_ = []
+for e in experiments:
+  for f in files:
+    if e in f:
+      f_.append(f)
+files = f_
 
 # not transposed tables
 non_t_tables = []
@@ -577,6 +588,125 @@ tex_string = df.to_latex(os.path.join('tables', f'org_vs_hef.tex'),
       original model into an HE-friendly one in seconds (HEf (s)). 
       """,
                          label=f'tab:org_vs_hef')
+
+# create one giant table
+condense = True
+
+if condense:
+  caption = """Results for the HE-friendly (HEF) models
+and models with different layer-wise sparsities (columns). The table
+shows the final sparsity (Sparsity) of the model, the prunable layers and their 
+units (filters for conv) / reduction factor / number HE operations, accuracy 
+(ACC) or mean squared error (MSE), the time need to prune the model (TP) in seconds,
+private inference latency (TPI) in seconds, and  total number of HE 
+operations (HEO) / maximum memory required to perform private (MPI) inference in GB.
+"""
+else:
+  caption = """
+ 
+"""
+
+table_string = ''
+for i, (exp, df) in enumerate(data_frames_t):
+  df = df.copy()
+
+  def int_format(x):
+    try:
+      return int(x)
+    except:
+      return x
+
+  def float_format(x):
+    if isinstance(x, str):
+      return x
+    return f'{x:.2f}'
+
+  if condense:
+    # # combine the time pruning and sparsity
+    # df.loc['Sparsity'] = [
+    #     float_format(s) + f' ({t})'
+    #     for s, t in zip(df.loc['Sparsity'], df.loc['TP'])
+    # ]
+    # df.drop('TP', axis='rows', inplace=True)
+
+    # # combine TPI, HEO, MPI
+    # combined = [
+    #     f'{t} / {h} / {m}'
+    #     for t, h, m in zip(df.loc['TPI'], df.loc['HEO'], df.loc['MPI'])
+    # ]
+    # df.loc['TPI'] = combined
+    # df.rename({'TPI': 'Ressources'}, inplace=True)
+    # df.drop(['HEO', 'MPI'], axis='rows', inplace=True)
+
+    # combine HEO and MPI
+    combined = [f'{h} / {m}' for h, m in zip(df.loc['HEO'], df.loc['MPI'])]
+    df.loc['HEO'] = combined
+    df.drop('MPI', axis='rows', inplace=True)
+    df.rename({'HEO': 'HEO / MPI'}, inplace=True)
+
+  # remove ms from private infernce
+  df.loc['TPI'] = [int_format(t) for t in df.loc['TPI']]
+
+  parbox = f'{translator[exp]}'
+  n_lines = len(df.index)
+  insert_idx = 0
+  multirow_str = f'\\multirow{{{n_lines}}}{{*}}{{\\rotatebox{{90}}{{{parbox}}}}}'
+  df = df.drop(['55%', '65%', '75%', '85%', '95%'], axis='columns')
+  tex_string = df.to_latex(
+      float_format="{:0.2f}".format,
+      #  index=False,
+      caption=caption,
+      label='tab:giant')
+  if i != 0:
+    # remove the header
+    tex_string = tex_string.split('\\midrule\n')[1]
+    multirow_str = '\\hline\n' + multirow_str
+  else:
+    tex_string = tex_string.replace('{tabular}{lllllll}',
+                                    '{tabular}{c|lrrrrrr}')
+    tex_string = tex_string.replace('Model &', 'Experiment & Information &')
+    # more robust searching for the insert index
+    found = False
+    while not found:
+      insert_idx = tex_string.find('Sparsity', insert_idx + 1)
+      for i in range(insert_idx + len('Sparsity'), len(tex_string)):
+        if tex_string[i] == '&':
+          found = True
+          break
+        if tex_string[i] != ' ':
+          break
+
+  if i != len(data_frames_t) - 1:
+    # remove the end
+    tex_string = tex_string.split('\\bottomrule')[0]
+
+  # insert & at the beginning of each row
+  start = insert_idx
+  for lines in range(n_lines):
+    tex_string = tex_string[:start] + ' & ' + tex_string[start:]
+    start = tex_string.find('\n', start) + 1
+
+  # insert the multirow
+  tex_string = tex_string[:insert_idx] + multirow_str + tex_string[insert_idx:]
+
+  table_string += tex_string
+
+footnotes = '''
+\\begin{tablenotes}{}
+\item - indicates the value is not applicable for the model; N/A indicates the 
+value is not available for the model; Conv: Convolution 
+\end{tablenotes}
+'''
+
+table_string = table_string.replace("\\begin{table}", "\\begin{table*}")
+table_string = table_string.replace("\\end{table}", "\\end{table*}")
+table_string = table_string.replace(
+    "\\begin{tabular}", "\\resizebox{\\textwidth}{!}{\\begin{tabular}")
+table_string = table_string.replace("\\end{tabular}",
+                                    "\\end{tabular}}\n" + footnotes)
+
+with open(os.path.join('tables', 'giant_table.tex'), 'w') as f:
+  f.write(table_string)
 
 # generate figures
 import matplotlib.pyplot as plt

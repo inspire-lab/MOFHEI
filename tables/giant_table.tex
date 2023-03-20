@@ -1,0 +1,85 @@
+\begin{table*}
+\centering
+\caption{Results for the HE-friendly (HEF) models
+and models with different layer-wise sparsities (columns). The table
+shows the final sparsity (Sparsity) of the model, the prunable layers and their 
+units (filters for conv) / reduction factor / number HE operations, accuracy 
+(ACC) or mean squared error (MSE), the time need to prune the model (TP) in seconds,
+private inference latency (TPI) in seconds, and  total number of HE 
+operations (HEO) / maximum memory required to perform private (MPI) inference in GB.
+}
+\label{tab:giant}
+\resizebox{\textwidth}{!}{\begin{tabular}{l|lrrrrrr}
+\toprule
+Experiment & Information &              HEF &               50\% &               60\% &              70\% &              80\% &              90\% \\
+\midrule
+\multirow{9}{*}{\rotatebox{90}{MNIST-LeNet}} & Sparsity  &                - &              0.73 &              0.81 &             0.89 &             0.96 &             0.98 \\
+ & Conv 0    &    6 / - / 2.4e5 &   3 / 2.0 / 1.2e5 &   3 / 2.0 / 1.2e5 &  3 / 2.0 / 1.2e5 &  1 / 6.0 / 3.9e4 &  1 / 6.0 / 3.9e4 \\
+ & Conv 1    &   16 / - / 4.8e5 &   8 / 2.0 / 1.2e5 &   7 / 2.3 / 1.1e5 &  5 / 3.2 / 7.5e4 &  3 / 5.3 / 1.5e4 &  2 / 8.0 / 1.0e4 \\
+ & Conv 2    &  120 / - / 9.6e4 &  61 / 2.0 / 2.4e4 &  51 / 2.4 / 1.8e4 &  37 / 3.2 / 9250 &  25 / 4.8 / 3750 &  16 / 7.5 / 1600 \\
+ & Dense 0   &   84 / - / 2.0e4 &   48 / 1.8 / 5856 &   39 / 2.2 / 3978 &  29 / 2.9 / 2146 &   18 / 4.7 / 900 &    9 / 9.3 / 288 \\
+ & ACC       &             0.99 &              0.99 &              0.99 &             0.98 &             0.98 &             0.97 \\
+ & TP        &                - &               111 &               167 &              210 &              298 &              393 \\
+ & TPI       &             1272 &               502 &               477 &              425 &              145 &              132 \\
+ & HEO / MPI &      8.8e5 / 303 &       2.9e5 / 166 &       2.7e5 / 166 &      2.2e5 / 166 &       6.7e4 / 75 &       5.8e4 / 75 \\
+\hline
+\multirow{9}{*}{\rotatebox{90}{X-Ray-LeNet}} & Sparsity  &                - &              0.70 &              0.79 &              0.87 &             0.96 &              0.98 \\
+ & Conv 0    &    6 / - / 2.7e5 &   4 / 1.5 / 1.8e5 &   3 / 2.0 / 1.4e5 &   2 / 3.0 / 9.0e4 &  1 / 6.0 / 4.5e4 &   1 / 6.0 / 4.5e4 \\
+ & Conv 1    &   16 / - / 5.8e5 &   9 / 1.8 / 2.2e5 &   7 / 2.3 / 1.3e5 &   5 / 3.2 / 6.0e4 &  3 / 5.3 / 1.8e4 &   3 / 5.3 / 1.8e4 \\
+ & Conv 2    &  120 / - / 9.6e4 &  62 / 1.9 / 2.8e4 &  55 / 2.2 / 1.9e4 &  47 / 2.6 / 1.2e4 &  24 / 5.0 / 3600 &  12 / 10.0 / 1800 \\
+ & Dense 0   &   84 / - / 2.0e4 &   50 / 1.7 / 6200 &   40 / 2.1 / 4400 &   33 / 2.5 / 3102 &  26 / 3.2 / 1248 &    13 / 6.5 / 312 \\
+ & ACC       &             0.75 &              0.72 &              0.74 &              0.72 &             0.81 &              0.80 \\
+ & TP        &                - &                21 &                20 &                40 &               91 &                93 \\
+ & TPI       &             1163 &               597 &               401 &               249 &              121 &               118 \\
+ & HEO / MPI &      1.0e6 / 386 &       4.7e5 / 280 &       3.1e5 / 228 &       1.8e5 / 175 &      7.7e4 / 122 &       7.4e4 / 122 \\
+\hline
+\multirow{9}{*}{\rotatebox{90}{CIFAR-10-MLeNet}} & Sparsity  &              - &               0.73 &               0.83 &               0.91 &               0.96 &               0.99 \\
+ & Conv 0    &   20 / - / N/A &   10 / 2.0 / 1.2e6 &    9 / 2.2 / 1.1e6 &    7 / 2.9 / 8.2e5 &    5 / 4.0 / 5.9e5 &   2 / 10.0 / 2.4e5 \\
+ & Conv 1    &  128 / - / N/A &   69 / 1.9 / 3.5e6 &   53 / 2.4 / 2.4e6 &   39 / 3.3 / 1.4e6 &   27 / 4.7 / 6.8e5 &   14 / 9.1 / 1.4e5 \\
+ & Conv 2    &  512 / - / N/A &  256 / 2.0 / 8.8e5 &  205 / 2.5 / 5.4e5 &  154 / 3.3 / 3.0e5 &  103 / 5.0 / 1.4e5 &  51 / 10.0 / 3.6e4 \\
+ & Dense 0   &  512 / - / N/A &  262 / 2.0 / 1.3e5 &  211 / 2.4 / 8.7e4 &  161 / 3.2 / 5.0e4 &  103 / 5.0 / 2.1e4 &    54 / 9.5 / 5508 \\
+ & ACC       &           0.75 &               0.72 &               0.67 &               0.63 &               0.56 &               0.40 \\
+ & TP        &              - &                781 &                678 &                752 &                663 &                685 \\
+ & TPI       &            N/A &               5781 &               4241 &               2745 &               1635 &                537 \\
+ & HEO / MPI &      N/A / N/A &        5.8e6 / 521 &        4.2e6 / 474 &        2.6e6 / 382 &        1.5e6 / 291 &        4.4e5 / 152 \\
+\hline
+\multirow{8}{*}{\rotatebox{90}{EGSS-FcNet}} & Sparsity  &                - &               0.70 &               0.80 &             0.87 &             0.94 &            0.98 \\
+ & Dense 0   &    64 / - / 1536 &    45 / 1.4 / 1080 &     37 / 1.7 / 888 &   33 / 1.9 / 792 &   22 / 2.9 / 528 &  12 / 5.3 / 288 \\
+ & Dense 1   &  128 / - / 1.6e4 &    68 / 1.9 / 6120 &    56 / 2.3 / 4144 &  41 / 3.1 / 2706 &  28 / 4.6 / 1232 &  18 / 7.1 / 432 \\
+ & Dense 2   &  256 / - / 6.6e4 &  131 / 2.0 / 1.8e4 &  104 / 2.5 / 1.2e4 &  88 / 2.9 / 7216 &  56 / 4.6 / 3136 &  27 / 9.5 / 972 \\
+ & ACC       &             0.93 &               0.94 &               0.94 &             0.93 &             0.94 &            0.91 \\
+ & TP        &                - &                 16 &                 21 &               20 &               19 &              21 \\
+ & TPI       &                8 &                  3 &                  2 &                1 &                1 &               0 \\
+ & HEO / MPI &       8.5e4 / 24 &          2.6e4 / 7 &          1.7e4 / 5 &        1.1e4 / 4 &         5226 / 2 &        1857 / 2 \\
+\hline
+\multirow{6}{*}{\rotatebox{90}{MNIST-AE1}} & Sparsity  &               - &              0.49 &              0.58 &             0.71 &             0.77 &             0.89 \\
+ & Dense 0   &  32 / - / 5.0e4 &  16 / 2.0 / 2.5e4 &  13 / 2.5 / 2.0e4 &  9 / 3.6 / 1.4e4 &  7 / 4.6 / 1.1e4 &  3 / 10.7 / 4704 \\
+ & MSE       &            0.02 &              0.03 &              0.03 &             0.04 &             0.04 &             0.05 \\
+ & TP        &               - &                21 &                21 &               21 &               21 &               22 \\
+ & TPI       &               5 &                 3 &                 3 &                2 &                2 &                2 \\
+ & HEO / MPI &      1.0e5 / 14 &         5.0e4 / 7 &         4.1e4 / 6 &        2.8e4 / 5 &        2.2e4 / 5 &         9411 / 4 \\
+\hline
+\multirow{6}{*}{\rotatebox{90}{MNIST-AE2}} & Sparsity  &               - &              0.47 &              0.57 &              0.67 &              0.78 &             0.88 \\
+ & Dense 0   &  64 / - / 1.0e5 &  34 / 1.9 / 5.3e4 &  27 / 2.4 / 4.2e4 &  21 / 3.0 / 3.3e4 &  14 / 4.6 / 2.2e4 &  7 / 9.1 / 1.1e4 \\
+ & MSE       &            0.01 &              0.02 &              0.02 &              0.02 &              0.03 &             0.04 \\
+ & TP        &               - &                39 &                39 &                39 &                39 &               38 \\
+ & TPI       &               7 &                 5 &                 4 &                 3 &                 3 &                2 \\
+ & HEO / MPI &      2.0e5 / 24 &        1.1e5 / 13 &        8.5e4 / 10 &        6.6e4 / 10 &         4.4e4 / 6 &        2.2e4 / 4 \\
+\hline
+\multirow{8}{*}{\rotatebox{90}{MNIST-AE3}} & Sparsity  &               - &              0.46 &              0.59 &              0.69 &              0.80 &             0.89 \\
+ & Dense 0   &  64 / - / 1.0e5 &  33 / 1.9 / 5.2e4 &  26 / 2.5 / 4.1e4 &  19 / 3.4 / 3.0e4 &  13 / 4.9 / 2.0e4 &  7 / 9.1 / 1.1e4 \\
+ & Dense 1   &   32 / - / 4096 &   19 / 1.7 / 1254 &    13 / 2.5 / 676 &    10 / 3.2 / 380 &     8 / 4.0 / 208 &    3 / 10.7 / 42 \\
+ & Dense 2   &   64 / - / 4096 &   37 / 1.7 / 1406 &    27 / 2.4 / 702 &    21 / 3.0 / 420 &    13 / 4.9 / 208 &     7 / 9.1 / 42 \\
+ & MSE       &            0.02 &              0.02 &              0.03 &              0.03 &              0.03 &             0.05 \\
+ & TP        &               - &                51 &                50 &                50 &                49 &               49 \\
+ & TPI       &              40 &                23 &                18 &                15 &                14 &               12 \\
+ & HEO / MPI &      2.1e5 / 76 &        1.1e5 / 41 &        8.5e4 / 34 &        6.4e4 / 26 &        4.1e4 / 20 &       2.2e4 / 13 \\
+\bottomrule
+\end{tabular}}
+
+\begin{tablenotes}{}
+\item - indicates the value is not applicable for the model; N/A indicates the 
+value is not available for the model; Conv: Convolution 
+\end{tablenotes}
+
+\end{table*}
