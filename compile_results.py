@@ -726,9 +726,9 @@ def clean_plot(x, y):
   return _x, _y
 
 
-label_font_size = 'xx-large'
+label_font_size = 'large'
 label_fontweight = 'bold'
-tick_size = 'xx-large'
+tick_size = 'x-large'
 
 
 # private infernce time vs sparsity
@@ -912,7 +912,7 @@ plt.clf()
 # sparsity vs he-ops reduction
 def total_heops_reduction_sparsity(fig, ax):
   for exp, df in data_frames:
-    x = SPARSITIES
+    x = [0] + SPARSITIES
     y = list(df['Total HE operations'])[1:]
     x, y = clean_plot(x, y)
     y = [x / y[0] for x in y]
@@ -990,7 +990,7 @@ plt.clf()
 # 'Memory PI'
 def memory_reduction_sparsity(fig, ax):
   for exp, df in data_frames:
-    x = SPARSITIES
+    x = [0] + SPARSITIES
     y = list(df['Memory PI'])[1:]
     x, y = clean_plot(x, y)
     y = [x / y[0] for x in y]
@@ -1095,6 +1095,6 @@ memory_sparsity_log(fig, axs[4])
 memory_reduction_sparsity(fig, axs[5])
 performance_sparsity(fig, axs[6])
 axs[7].axis('off')
-axs[7].legend(handles=legend_handles, loc='center', prop={'size': 'x-large'})
+axs[7].legend(handles=legend_handles, loc='center', prop={'size': 'xx-large'})
 fig.tight_layout()
 fig.savefig(os.path.join('figures', 'all_log.pdf'))
