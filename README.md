@@ -1,4 +1,3 @@
-<img src="docs/logo.png" width="200">
 
 ## Requirements
 - TensorFlow 2+
