@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore")
 
 '''
 CUSTOM LAYERS, CLASSES, AND OBJECTS
-'''
+''''
 
 class MyPatienceCallback(tf.keras.callbacks.EarlyStopping):
   def __init__(self,*args, **kwargs) -> None:
