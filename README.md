@@ -1,3 +1,5 @@
+__MOFHEI__ is a model optimization framework that optimizes pre-trained ML models for faster and more efficient non-interactive private inference (PI) under Homomorphic Encryption (HE). It effectively transforms an ML model into an HE-friendly version using our learning-based method, then applies our iterative block pruning method to prune the model with respect to the HE packing method. Therefore, while maintaining accuracy, it reduces the number of HE operations, thereby PI latency and memory usage. Our pruning technique works on 2D convolutional and fully connected layers, along with batch packing.
+
 
 ## Requirements
 - TensorFlow 2+
