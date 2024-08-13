@@ -12,7 +12,7 @@
 This Python 3+ library converts TensorFlow models into a HE-friendly pruned model. Only models with Conv2d & Dense layers are supported (as of Dec 12, 2022). It requires a trained plain-text model and plain-text training and validation dataset in addition to a dictionary of options ```opt```.
 
 ```Python
-from mlsurgery import *
+from mofhei import *
 
 opt                                = {}
 
@@ -41,7 +41,7 @@ opt['begin_step']                  = 0
 opt['frequency']                   = 100
 
 
-my_obj                             = MLSurgery(data_tr, data_vl, model, opt)
+my_obj                             = mofhei(data_tr, data_vl, model, opt)
 model_culled, acc                  = my_obj.run()
 
 ```
@@ -50,8 +50,8 @@ model_culled, acc                  = my_obj.run()
 
 ## Example
 
-Step 0: Clone the library with an access token ```git clone https://YOURTOKEN@github.com/mhrgroup/MLSurgery.git``` 
+Step 0: Clone the library with an access token ```git clone https://YOURTOKEN@github.com/mhrgroup/mofhei.git``` 
 
-Step 1: Run ```mlsurgery_example.py``` (default is set for ```'mnist'```)
+Step 1: Run ```mofhei_example.py``` (default is set for ```'mnist'```)
 
 Step 2: Verify ```model_culled.h5```
