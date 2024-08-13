@@ -309,11 +309,11 @@ def fun_tf_expand(val):
 
 '''
 $$$$$$$$$$$$$$$$$$$$$
-CLASS MLSURGERY
+CLASS mofhei
 $$$$$$$$$$$$$$$$$$$$$
 '''
 
-class MLSurgery():
+class mofhei():
     
     # Class Object Attributes
     def __init__(self, opt):
@@ -357,7 +357,7 @@ class MLSurgery():
                                          loss      = self.opt['config']['loss'], 
                                          metrics   = self.opt['config']['metrics'])
         
-        self.temp_msm = MLSurgery.fun_model_testing(self, name = 'hefriendly') 
+        self.temp_msm = mofhei.fun_model_testing(self, name = 'hefriendly') 
 
     def fun_model_stack(df):
         '''
@@ -486,8 +486,8 @@ class MLSurgery():
         '''
 
         # we first clone the original model to make sure we dont mess with the model_original
-        self.opt['models']['hefriendly'] = MLSurgery.fun_model_clone(self, name = 'original')
-        df_clone        = MLSurgery.fun_model_info(self, name = 'hefriendly')
+        self.opt['models']['hefriendly'] = mofhei.fun_model_clone(self, name = 'original')
+        df_clone        = mofhei.fun_model_info(self, name = 'hefriendly')
 
         # find indeices of all max pooling layers
         ind_pool        = np.where(df_clone['maxpool'].values)[0]
@@ -497,7 +497,7 @@ class MLSurgery():
 
         # go through each max pooling layer and convert it to average pooling layer
         for ind in ind_pool:
-            df_clone = MLSurgery.fun_model_info(self, name = 'hefriendly')
+            df_clone = mofhei.fun_model_info(self, name = 'hefriendly')
 
             # we first freez all layers
             for i0 in range(len(df_clone)):
@@ -520,8 +520,8 @@ class MLSurgery():
                 df_clone['layer'][i0].trainable = True
                 df_clone['trainable'][i0]       = True
             
-            x           = MLSurgery.fun_model_stack(df_clone)
-            self.opt['models']['hefriendly'] = MLSurgery.fun_model_create(self, 'transfer', x)
+            x           = mofhei.fun_model_stack(df_clone)
+            self.opt['models']['hefriendly'] = mofhei.fun_model_create(self, 'transfer', x)
 
             self.opt = fun_config(self.opt)
             self.opt['models']['hefriendly'].fit(self.opt['data']['datain_tr'], 
@@ -554,7 +554,7 @@ class MLSurgery():
                                                  callbacks       = self.opt['config']['callbacks'])
 
             
-        msm_case = MLSurgery.fun_model_testing(self, name = 'hefriendly')    
+        msm_case = mofhei.fun_model_testing(self, name = 'hefriendly')    
 
         return msm_case 
 
@@ -563,8 +563,8 @@ class MLSurgery():
         DEPRECIATED | Trun every relu layer into average pooling layer (after max2ave)
         '''
 
-        self.opt['models']['hefriendly'] = MLSurgery.fun_model_clone(self, name = 'hefriendly')
-        df_clone        = MLSurgery.fun_model_info(self, name = 'hefriendly')
+        self.opt['models']['hefriendly'] = mofhei.fun_model_clone(self, name = 'hefriendly')
+        df_clone        = mofhei.fun_model_info(self, name = 'hefriendly')
 
         # find indeices of all relu layers
         ind_relu        = np.where(df_clone['relu'].values)[0]
@@ -573,7 +573,7 @@ class MLSurgery():
         ind_relu        = ind_relu[::-1]
 
         for ind in ind_relu:
-            df_clone = MLSurgery.fun_model_info(self, name = 'hefriendly')
+            df_clone = mofhei.fun_model_info(self, name = 'hefriendly')
 
             for i0 in range(len(df_clone)):
                 df_clone['layer'][i0].trainable = False
@@ -593,7 +593,7 @@ class MLSurgery():
                 df_clone['layer'][ind] =  DynamicPolyActn_D4()
             
             else:
-                assert True, "MLSurgery ERROR: Only polynomials of degree 0, 2, 3, & 4 are supported"
+                assert True, "mofhei ERROR: Only polynomials of degree 0, 2, 3, & 4 are supported"
 
             df_clone['type'][ind]      = 'PolyReLU'
             df_clone['trainable'][ind] = True
@@ -605,8 +605,8 @@ class MLSurgery():
                 df_clone['layer'][i0].trainable = True
                 df_clone['trainable'][i0]       = True
             
-            x           = MLSurgery.fun_model_stack(df_clone)
-            self.opt['models']['hefriendly'] = MLSurgery.fun_model_create(self, 'transfer', x)
+            x           = mofhei.fun_model_stack(df_clone)
+            self.opt['models']['hefriendly'] = mofhei.fun_model_create(self, 'transfer', x)
 
             self.opt['models']['hefriendly'].fit(self.opt['data']['datain_tr'], 
                                                  self.opt['data']['dataou_tr'], 
@@ -637,7 +637,7 @@ class MLSurgery():
                                                  callbacks       = self.opt['config']['callbacks'])
 
             
-        msm_case = MLSurgery.fun_model_testing(self, name = 'hefriendly')   
+        msm_case = mofhei.fun_model_testing(self, name = 'hefriendly')   
 
         return msm_case
     
@@ -646,8 +646,8 @@ class MLSurgery():
         Trun every activation layer into average pooling layer (after max2ave)
         '''
 
-        self.opt['models']['hefriendly'] = MLSurgery.fun_model_clone(self, name = 'hefriendly')
-        df_clone        = MLSurgery.fun_model_info(self, name = 'hefriendly')
+        self.opt['models']['hefriendly'] = mofhei.fun_model_clone(self, name = 'hefriendly')
+        df_clone        = mofhei.fun_model_info(self, name = 'hefriendly')
 
         # find indeices of all activation layers
         ind_actn        = np.where(df_clone['actn'].values)[0]
@@ -656,7 +656,7 @@ class MLSurgery():
         ind_actn        = ind_actn[::-1]
 
         for ind in ind_actn:
-            df_clone = MLSurgery.fun_model_info(self, name = 'hefriendly')
+            df_clone = mofhei.fun_model_info(self, name = 'hefriendly')
 
             for i0 in range(len(df_clone)):
                 df_clone['layer'][i0].trainable = False
@@ -676,7 +676,7 @@ class MLSurgery():
                 df_clone['layer'][ind] =  DynamicPolyActn_D4()
             
             else:
-                assert True, "MLSurgery ERROR: Only polynomials of degree 0, 2, 3, & 4 are supported"
+                assert True, "mofhei ERROR: Only polynomials of degree 0, 2, 3, & 4 are supported"
 
             df_clone['type'][ind]      = 'PolyActn'
             df_clone['trainable'][ind] = True
@@ -688,8 +688,8 @@ class MLSurgery():
                 df_clone['layer'][i0].trainable = True
                 df_clone['trainable'][i0]       = True
             
-            x           = MLSurgery.fun_model_stack(df_clone)
-            self.opt['models']['hefriendly'] = MLSurgery.fun_model_create(self, 'transfer', x)
+            x           = mofhei.fun_model_stack(df_clone)
+            self.opt['models']['hefriendly'] = mofhei.fun_model_create(self, 'transfer', x)
 
             # print('transfer', ind, ind_actn)
 
@@ -729,10 +729,10 @@ class MLSurgery():
                                                  validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
                                                  callbacks       = self.opt['config']['callbacks'])
             
-            self.opt['models']['hefriendly'] = MLSurgery.fun_model_clone(self, 'hefriendly')
+            self.opt['models']['hefriendly'] = mofhei.fun_model_clone(self, 'hefriendly')
 
             
-        msm_case = MLSurgery.fun_model_testing(self, name = 'hefriendly')   
+        msm_case = mofhei.fun_model_testing(self, name = 'hefriendly')   
 
         return msm_case
     
@@ -883,7 +883,7 @@ class MLSurgery():
         model_pruning = fun_generate_model_pruning(self, model)
         '''
     
-        self.opt['models']['pruned'] = MLSurgery.fun_model_clone(self, name=name)
+        self.opt['models']['pruned'] = mofhei.fun_model_clone(self, name=name)
 
         input_shape = self.opt['models']['pruned'].layers[0].input_shape[0][1:]
         inputs      = tf.keras.Input(input_shape)
@@ -903,7 +903,7 @@ class MLSurgery():
 
             if 'conv2d' in name:
 
-                info = MLSurgery.conv2d_information_extractor(self, layer, info = info)
+                info = mofhei.conv2d_information_extractor(self, layer, info = info)
                 
                 x = Features_4D_To_2D(info[name]['kernel_size'], info[name]['strides']) (x, padding = info[name]['padding'])
 
@@ -915,7 +915,7 @@ class MLSurgery():
 
             elif ('dense' in name) and (name !=  dense_names[-1]):
         
-                info = MLSurgery.dense_infomation_extractor(self, layer, info = info)
+                info = mofhei.dense_infomation_extractor(self, layer, info = info)
                 
                 x = tfmot.sparsity.keras.prune_low_magnitude(tf.keras.layers.Dense(units              = layer.units,
                                                                                    kernel_initializer = info[name]['weight_initializer'],
@@ -941,7 +941,7 @@ class MLSurgery():
         '''
         #self.opt['models']['pruned'].summary()
 
-        #self.opt['models']['pruned'] = MLSurgery.fun_model_clone(self, 'pruned')
+        #self.opt['models']['pruned'] = mofhei.fun_model_clone(self, 'pruned')
         
         keys        = list(info.keys())
 
@@ -962,7 +962,7 @@ class MLSurgery():
                 layer         = self.opt['models']['pruned'].layers[layer_counter + 1]
                 name          = layer.name
                 weight_shape  = info[keys[info_counter]]['weight_shape']
-                info          = MLSurgery.conv2d_plugback_initializers(layer, info, weight_shape)
+                info          = mofhei.conv2d_plugback_initializers(layer, info, weight_shape)
 
                 x = tf.keras.layers.Conv2D(filters            = info[keys[info_counter]]['num_filters'],
                                            kernel_size        = info[keys[info_counter]]['kernel_size'], 
@@ -975,7 +975,7 @@ class MLSurgery():
                 layer_counter = layer_counter + 3
 
             elif 'dense' in name:
-                info  = MLSurgery.dense_plugback_initializers(layer, info)
+                info  = mofhei.dense_plugback_initializers(layer, info)
 
                 x = tf.keras.layers.Dense(units              = layer.weights[0].shape[1],
                                           kernel_initializer = info[name]['weight_initializer'],
@@ -1006,9 +1006,9 @@ class MLSurgery():
         model, msm = fun_tfmot_prune(self, model)
         '''
 
-        self.opt['models']['pruned'] = MLSurgery.fun_model_clone(self, name = name)
+        self.opt['models']['pruned'] = mofhei.fun_model_clone(self, name = name)
 
-        info = MLSurgery.fun_generate_model_pruning(self, name = 'pruned')
+        info = mofhei.fun_generate_model_pruning(self, name = 'pruned')
 
         self.opt = fun_config(self.opt)
         self.opt['models']['pruned'].fit(self.opt['data']['datain_tr'], 
@@ -1020,17 +1020,17 @@ class MLSurgery():
                                          validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
                                          callbacks       = self.opt['config']['callbacks_tfmot'])
 
-        MLSurgery.fun_weight_observation(self)
+        mofhei.fun_weight_observation(self)
         
-        MLSurgery.fun_generate_model_plugbacked(self, info)
+        mofhei.fun_generate_model_plugbacked(self, info)
 
-        msm_case = MLSurgery.fun_model_testing(self, name = 'pruned')   
+        msm_case = mofhei.fun_model_testing(self, name = 'pruned')   
 
         return msm_case
         
     def fun_culling(self):
 
-        self.opt['models']['pruned'] = MLSurgery.fun_model_clone(self, name = 'pruned')
+        self.opt['models']['pruned'] = mofhei.fun_model_clone(self, name = 'pruned')
  
         info = {}
         for layer in self.opt['models']['pruned'].layers:
@@ -1225,7 +1225,7 @@ class MLSurgery():
                                          validation_data = (self.opt['data']['datain_vl'], self.opt['data']['dataou_vl']), 
                                          callbacks       = self.opt['config']['callbacks'])
         
-        msm_case = MLSurgery.fun_model_testing(self, name = 'pruned')   
+        msm_case = mofhei.fun_model_testing(self, name = 'pruned')   
         
         return msm_case
 
@@ -1257,7 +1257,7 @@ class MLSurgery():
 
     def run(self):
 
-        MLSurgery.fun_clear()
+        mofhei.fun_clear()
 
         if self.opt['problem'] == 0 :
             msm_name = 'ACC'
@@ -1278,13 +1278,13 @@ class MLSurgery():
             self.opt['training_time']['hefriendly'] = 0 
 
             if self.opt['skip']['pool']:
-                MLSurgery.fun_model_loading(self, name = 'hefriendly', subname = 'pool')
+                mofhei.fun_model_loading(self, name = 'hefriendly', subname = 'pool')
                 msm = self.temp_msm
             else:
-                msm = MLSurgery.fun_max2ave(self)
+                msm = mofhei.fun_max2ave(self)
                 self.opt['training_time']['hefriendly'] = self.opt['training_time']['hefriendly'] + (time.time() - start_time)
 
-                MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'pool')
+                mofhei.fun_model_saving(self, name = 'hefriendly', subname = 'pool')
 
             print("Make The Model HE-Friendly | Converting MaxPoolings into AvergePoolings | End   | Testing {}: {:2.7f}".format(msm_name, msm))
 
@@ -1292,21 +1292,21 @@ class MLSurgery():
 
             start_time = time.time()
             if self.opt['skip']['actn']:
-                MLSurgery.fun_model_loading(self, name = 'hefriendly', subname = 'actn')
+                mofhei.fun_model_loading(self, name = 'hefriendly', subname = 'actn')
                 msm = self.temp_msm
             else:
-                msm = MLSurgery.fun_activation2poly(self)
+                msm = mofhei.fun_activation2poly(self)
                 self.opt['training_time']['hefriendly'] = self.opt['training_time']['hefriendly'] + (time.time() - start_time)
 
-                MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'actn')
+                mofhei.fun_model_saving(self, name = 'hefriendly', subname = 'actn')
 
 
-            #msm = MLSurgery.fun_activation2poly(self)
-            MLSurgery.fun_model_saving(self, name = 'hefriendly', subname = 'actn')
+            #msm = mofhei.fun_activation2poly(self)
+            mofhei.fun_model_saving(self, name = 'hefriendly', subname = 'actn')
 
             print("Make The Model HE-Friendly | Converting ReLUs       into Polynomials    | End   | Testing {}: {:2.7f}".format(msm_name, msm))
 
-            MLSurgery.fun_model_saving(self, name = 'hefriendly')
+            mofhei.fun_model_saving(self, name = 'hefriendly')
 
             
         if self.opt['pruning_stat']:
@@ -1320,18 +1320,18 @@ class MLSurgery():
 
             start_time                          = time.time()
 
-            msm = MLSurgery.fun_tfmot_prune(self, name)
-            msm = MLSurgery.fun_culling(self)
+            msm = mofhei.fun_tfmot_prune(self, name)
+            msm = mofhei.fun_culling(self)
 
             self.opt['training_time']['pruned'] = (time.time() - start_time)
 
             print("Packing-Aware Pruning      | TF-Optimization                            | End   | Testing {}: {:2.7f}".format(msm_name, msm))
             
-            MLSurgery.fun_model_saving(self, name = 'pruned')
+            mofhei.fun_model_saving(self, name = 'pruned')
 
-        MLSurgery.fun_model_estimation(self, name = 'original')
-        MLSurgery.fun_model_estimation(self, name = 'hefriendly')
-        MLSurgery.fun_model_estimation(self, name = 'pruned')
+        mofhei.fun_model_estimation(self, name = 'original')
+        mofhei.fun_model_estimation(self, name = 'hefriendly')
+        mofhei.fun_model_estimation(self, name = 'pruned')
 
         return self.opt
 
@@ -2624,8 +2624,8 @@ def fun_conclude(opt):
     print(" ")
 
 def fun_get_arg_parser():
-    parser = argparse.ArgumentParser(prog        = 'main_mlsurgery',
-                                    description = '** Version 202303011200 ** | Run MLSurgery Paper Experiment of Interest')
+    parser = argparse.ArgumentParser(prog        = 'main_mofhei',
+                                    description = '** Version 202303011200 ** | Run mofhei Paper Experiment of Interest')
 
     # create list of experiments to insert into the help
 
@@ -2640,7 +2640,7 @@ def fun_get_arg_parser():
             exp_string += many_spaces + f'({i}) ' + exp + ' ||| \n'
 
     experiment_help =               '''
-                                    Select one of the following experiments (number) from MLSurgery paper: 
+                                    Select one of the following experiments (number) from mofhei paper: 
                                         
 '''
     experiment_help +=               exp_string
@@ -2774,7 +2774,7 @@ def main():
         # Specify an invalid GPU device
         with tf.device('/device:GPU:' + args.gpu_device_id):
             opt    = fun_initiate(args)
-            my_obj = MLSurgery(opt)
+            my_obj = mofhei(opt)
             opt    = my_obj.run()
             
             fun_conclude(opt)
