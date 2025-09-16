@@ -1,4 +1,6 @@
-## MOFHEI
+## MOFHEI: Model Optimizing Framework for Fast and Efficient Homomorphically Encrypted Neural Network Inference
+
+This repo contains the source code for the paper ["MOFHEI: Model Optimizing Framework for Fast and Efficient Homomorphically Encrypted Neural Network Inference"](https://ieeexplore.ieee.org/document/10835462)
 
 __MOFHEI__ is a model optimization framework that optimizes pre-trained ML models for faster and more efficient non-interactive __private inference (PI)__ under __Homomorphic Encryption (HE)__. It effectively transforms an ML model into an HE-friendly version using our learning-based method, then applies our iterative block pruning method to prune the model with respect to the HE packing method. Therefore, while maintaining accuracy, it reduces the number of HE operations, thereby PI latency and memory usage. Our pruning technique works on 2D convolutional and fully connected layers, along with batch packing.
 
@@ -59,3 +61,20 @@ Step 0: Clone the library with an access token ```git clone https://YOURTOKEN@gi
 Step 1: Run ```mofhei_example.py``` (default is set for ```'mnist'```)
 
 Step 2: Verify ```model_culled.h5```
+
+## Citation
+
+If you found this code useful, please cite our paper.
+
+```bibtex
+@INPROCEEDINGS{10835462,
+  author={Ghazvinian, Parsa and Podschwadt, Robert and Panzade, Prajwal and Rafiei, Mohammad H. and Takabi, Daniel},
+  booktitle={2024 IEEE 6th International Conference on Trust, Privacy and Security in Intelligent Systems, and Applications (TPS-ISA)}, 
+  title={MOFHEI: Model Optimizing Framework for Fast and Efficient Homomorphically Encrypted Neural Network Inference}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={233-244},
+  keywords={Learning systems;Privacy;Accuracy;Shape;Memory management;Transforms;Machine learning;Data models;Cryptography;Iterative methods;Privacy-Preserving Machine Learning;Homomorphic Encryption;Private Inference;Model Optimization;Block Pruning},
+  doi={10.1109/TPS-ISA62245.2024.00035}}
+
